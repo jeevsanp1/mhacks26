@@ -186,3 +186,54 @@ def test_truncate_binary_in_events() -> None:
     blob = BinaryContent(data=b"abc" * 100, media_type="image/png")
     assert _truncate(blob) == "<image/png 300 bytes>"
     assert _truncate([blob]) == ["<image/png 300 bytes>"]
+
+
+def test_resolve_open_url_search_and_https() -> None:
+    assert cu.resolve_open_url("https://example.com/a") == "https://example.com/a"
+    assert cu.resolve_open_url("example.com") == "https://example.com"
+    assert "google.com/search" in cu.resolve_open_url("hello world")
+    assert "hello+world" in cu.resolve_open_url("hello world")
+
+
+def test_open_url_action_uses_launcher(
+    fake_stack: _FakePyAutoGUI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, check=True, capture_output=True):  # noqa: ANN001
+        calls.append(list(cmd))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(cu.subprocess, "run", fake_run)
+    monkeypatch.setattr(cu.sys, "platform", "darwin")
+    out = cu.computer_action(
+        "open_url",
+        text="hello world",
+        include_screenshot=False,
+        duration=0.0,
+    )
+    assert isinstance(out, str)
+    assert "opened https://www.google.com/search" in out
+    assert calls and calls[0][0] == "open"
+    assert "hello+world" in calls[0][1]
+
+
+def test_open_app_action(
+    fake_stack: _FakePyAutoGUI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, check=True, capture_output=True):  # noqa: ANN001
+        calls.append(list(cmd))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(cu.subprocess, "run", fake_run)
+    monkeypatch.setattr(cu.sys, "platform", "darwin")
+    out = cu.computer_action(
+        "open_app",
+        text="Safari",
+        include_screenshot=False,
+        duration=0.0,
+    )
+    assert out == "opened app 'Safari'"
+    assert calls == [["open", "-a", "Safari"]]

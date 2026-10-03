@@ -8,9 +8,13 @@ maps them back to the OS logical screen before acting.
 from __future__ import annotations
 
 import io
+import shutil
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from typing import Any, Literal, Sequence
+from urllib.parse import quote_plus
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import BinaryContent, ToolReturn
@@ -23,6 +27,8 @@ ACTIONS = (
     "screenshot",
     "cursor_position",
     "monitors",
+    "open_url",
+    "open_app",
     "mouse_move",
     "left_click",
     "right_click",
@@ -206,6 +212,72 @@ def _tool_return_with_shot(
     )
 
 
+def resolve_open_url(text: str) -> str:
+    """Turn a URL or search query into a browsable URL."""
+    raw = (text or "").strip()
+    if not raw:
+        raise ValueError("open_url requires text (URL or search query)")
+    lower = raw.lower()
+    if lower.startswith(("http://", "https://", "file://")):
+        return raw
+    if " " not in raw and "." in raw and not raw.startswith("?"):
+        return f"https://{raw}"
+    return f"https://www.google.com/search?q={quote_plus(raw)}"
+
+
+def open_url(text: str) -> str:
+    """Open a URL (or Google-search a query) in the default browser."""
+    url = resolve_open_url(text)
+    _launch_uri(url)
+    return f"opened {url}"
+
+
+def open_app(name: str) -> str:
+    """Launch an application by name (macOS `open -a`, else best-effort)."""
+    app = (name or "").strip()
+    if not app:
+        raise ValueError("open_app requires text (application name)")
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-a", app], check=True, capture_output=True)
+        return f"opened app {app!r}"
+    if sys.platform.startswith("linux"):
+        exe = shutil.which(app) or app
+        subprocess.Popen(  # noqa: S603
+            [exe],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        return f"launched {exe!r}"
+    if sys.platform == "win32":
+        subprocess.run(  # noqa: S603
+            ["cmd", "/c", "start", "", app],
+            check=True,
+            capture_output=True,
+            shell=False,
+        )
+        return f"started {app!r}"
+    raise RuntimeError(f"open_app unsupported on {sys.platform}")
+
+
+def _launch_uri(url: str) -> None:
+    if sys.platform == "darwin":
+        subprocess.run(["open", url], check=True, capture_output=True)
+        return
+    if sys.platform == "win32":
+        subprocess.run(  # noqa: S603
+            ["cmd", "/c", "start", "", url],
+            check=True,
+            capture_output=True,
+            shell=False,
+        )
+        return
+    opener = shutil.which("xdg-open")
+    if not opener:
+        raise RuntimeError("xdg-open not found")
+    subprocess.run([opener, url], check=True, capture_output=True)
+
+
 def computer_action(
     action: str,
     *,
@@ -223,6 +295,24 @@ def computer_action(
     act = (action or "").strip().lower()
     if act not in ACTIONS:
         return f"error: unknown action {action!r}; choose one of: {', '.join(ACTIONS)}"
+
+    # OS launchers do not need the screenshot stack.
+    if act in {"open_url", "open_app"}:
+        try:
+            if act == "open_url":
+                status = open_url(text or "")
+            else:
+                status = open_app(text or "")
+            # Give the app/browser a moment to come forward.
+            time.sleep(max(0.4, min(float(duration), 5.0)))
+            if include_screenshot:
+                return _tool_return_with_shot(
+                    status,
+                    capture_screen(monitor=monitor, max_dim=max_dim),
+                )
+            return status
+        except Exception as exc:  # noqa: BLE001
+            return f"error: {type(exc).__name__}: {exc}"
 
     try:
         mss, pyautogui, _Image = _import_stack()
@@ -390,8 +480,6 @@ def computer_action(
 
 
 def _is_mac() -> bool:
-    import sys
-
     return sys.platform == "darwin"
 
 
@@ -435,27 +523,28 @@ def register_computer_use_tool(agent: Agent[ClawDeps, str]) -> None:
     ) -> ComputerResult:
         """Control the host desktop with screenshots and pointer/keyboard actions.
 
-        Use this to see and operate the computer running the gateway. Typical loop:
-        1) action='screenshot' to observe
-        2) click/move/type/key based on UI in the image
-        3) read the returned screenshot and continue
+        Prefer high-level actions over hunting Dock icons:
+          - open_url: open a URL or Google-search a query in the default browser
+          - open_app: launch an app by name (e.g. text="Google Chrome", "Safari")
+        Then screenshot and use pointer/keyboard only for UI that needs clicks.
 
         Actions:
-          screenshot | cursor_position | monitors |
+          open_url | open_app | screenshot | cursor_position | monitors |
           mouse_move | left_click | right_click | middle_click |
           double_click | triple_click | left_click_drag | scroll |
           type | key | wait
 
         Coordinates are [x, y] in the *screenshot image* pixel space (not CSS
-        or window-local). After pointer/keyboard actions a fresh screenshot is
-        returned by default (include_screenshot=true).
+        or window-local). After actions a fresh screenshot is returned by
+        default (include_screenshot=true).
 
         Examples:
-          computer(action="screenshot")
+          computer(action="open_url", text="hello world")
+          computer(action="open_url", text="https://www.google.com/search?q=hello+world")
+          computer(action="open_app", text="Safari")
+          computer(action="key", text="cmd+l")  # focus browser address bar
           computer(action="left_click", coordinate=[640, 360])
           computer(action="type", text="hello")
-          computer(action="key", text="cmd+space")
-          computer(action="scroll", coordinate=[640, 360], scroll_direction="down")
         """
         _ = ctx
         direction: Literal["up", "down", "left", "right"] | None = None

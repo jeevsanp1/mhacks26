@@ -71,6 +71,9 @@ For Microsoft Foundry, prefer `CLAW_MODEL=azure:<deployment-name>` with
 `AZURE_OPENAI_ENDPOINT=https://<resource>.services.ai.azure.com/openai/v1/`.
 Use the **deployment name** from the project (not the catalog model id).
 The project URL (`/api/projects/...`) is for management APIs; chat uses `/openai/v1/`.
+Reasoning models that use tools (e.g. `gpt-6-astra`) need
+`CLAW_MODEL=azure-responses:<deployment-name>` — chat completions rejects
+function tools with `reasoning_effort`.
 Native `WebSearch` is disabled for `azure:` / `azure-responses:` models; use the DuckDuckGo `web_search` tool instead (always registered).
 
 **Safety:** `Coder` includes unrestricted shell on the host workspace (same as
