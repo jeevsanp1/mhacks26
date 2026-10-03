@@ -37,10 +37,13 @@ INSTRUCTIONS = (
     "one-shots, intervals, or cron expressions — with a `job` object containing "
     "`schedule` + `payload`. Do not use shell sleep/OS crontab as a timer; the "
     "Gateway CronService runs due jobs.\n\n"
-    "Computer use: when the user wants you to look at or operate the host desktop UI, "
-    "use the `computer` tool. Start with action='screenshot', then click/move/type/key "
-    "using coordinates from that screenshot image. Prefer computer over guessing "
-    "window titles or asking the user to click."
+    "Computer use: when the user wants you to operate the host desktop UI, use "
+    "`computer`. For browser tasks, call open_url (URL or search query) or open_app "
+    "— do NOT hunt Dock icons or Spotlight by clicking. Example: "
+    "computer(action='open_url', text='hello world') opens a Google search. "
+    "Then screenshot to verify. Use key shortcuts (cmd+l address bar, cmd+space "
+    "Spotlight) before guessing icon coordinates. Prefer web_search for answers "
+    "when the user does not need the real browser UI."
 )
 
 
