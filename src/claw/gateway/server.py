@@ -12,12 +12,20 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from starlette.websockets import WebSocketState
 
-from claw.channels.dispatch import dispatch_inbound
-from claw.channels.voice import ElevenLabsSpeech, ElevenLabsSpeechError
+from claw.channels.dispatch import start_inbound
+from claw.channels.voice import (
+    ElevenLabsSpeech,
+    ElevenLabsSpeechError,
+    STREAM_TTS_SAMPLE_RATE,
+    RealtimeTranscriber,
+    StreamingSynthesizer,
+    pcm16_to_wav,
+)
 from claw.config import Settings, get_settings
 from claw.events import AgentEvent
 from claw.gateway import methods, protocol
 from claw.heartbeat import HeartbeatService
+from claw.routing import parse_inbound_params
 from claw.runner import AgentRunner
 from claw.scheduler import CronService
 
@@ -107,7 +115,9 @@ def create_app(
     async def voice_page() -> FileResponse:
         """Push-to-talk voice prototype over /ws/voice."""
         path = STATIC_DIR / "voice.html"
-        return FileResponse(path, media_type="text/html; charset=utf-8")
+        return FileResponse(
+            path, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-store"}
+        )
 
     @app.get("/health")
     async def http_health() -> dict[str, Any]:
@@ -286,22 +296,136 @@ def create_app(
 
     @app.websocket("/ws/voice")
     async def voice_websocket(ws: WebSocket) -> None:
-        """Push-to-talk voice loop: audio in -> STT -> dispatch_inbound -> TTS -> audio out.
+        """Push-to-talk voice loop: audio in -> STT -> start_inbound -> TTS -> audio out.
 
         Reuses the exact same routing/runner pipeline as every other channel —
         see claw/channels/dispatch.py. The only new thing here is speech I/O.
         """
         await ws.accept()
         conn_id = str(uuid.uuid4())
+        send_lock = asyncio.Lock()
+        turn_lock = asyncio.Lock()  # replies (and their audio) go out in utterance order
+        turn_tasks: set[asyncio.Task[None]] = set()
+
+        async def send_json(frame: dict[str, Any]) -> None:
+            if ws.client_state != WebSocketState.CONNECTED:
+                return
+            async with send_lock:
+                await ws.send_text(protocol.dumps(frame))
+
+        async def send_audio(data: bytes) -> None:
+            if ws.client_state != WebSocketState.CONNECTED:
+                return
+            async with send_lock:
+                await ws.send_bytes(data)
 
         try:
             speech = ElevenLabsSpeech(app.state.settings)
         except ElevenLabsSpeechError as exc:
-            await ws.send_text(protocol.dumps({"type": "error", "message": str(exc)}))
+            await send_json({"type": "error", "message": str(exc)})
             await ws.close(code=1011)
             return
 
+        runner: AgentRunner = app.state.runner
+        speaking: dict[str, StreamingSynthesizer | None] = {"tts": None}
+
+        async def run_turn(utt_id: Any, transcript: str) -> None:
+            async with turn_lock:
+                audio_started = False
+
+                async def start_audio(fmt: str) -> None:
+                    nonlocal audio_started
+                    if not audio_started:
+                        audio_started = True
+                        await send_json({"type": "audio_start", "id": utt_id, "format": fmt})
+
+                async def on_audio(pcm: bytes) -> None:
+                    await start_audio(f"pcm_{STREAM_TTS_SAMPLE_RATE}")
+                    await send_audio(pcm)
+
+                tts = speech.streaming_tts(on_audio)
+                tts.start()
+                speaking["tts"] = tts
+                try:
+                    _, accepted = start_inbound(
+                        runner,
+                        parse_inbound_params(
+                            {
+                                "channel": "voice",
+                                "text": transcript,
+                                "peer": {"kind": "direct", "id": conn_id},
+                            }
+                        ),
+                    )
+
+                    async def on_event(event: AgentEvent) -> None:
+                        delta = event.data.get("delta")
+                        if (
+                            event.run_id == accepted.run_id
+                            and event.stream == "assistant"
+                            and isinstance(delta, str)
+                        ):
+                            await send_json({"type": "reply_delta", "id": utt_id, "delta": delta})
+                            tts.feed(delta)
+
+                    unsubscribe = runner.subscribe(on_event)
+                    try:
+                        snap = await runner.wait(accepted.run_id)
+                    finally:
+                        unsubscribe()
+                    reply_text = snap.output or "(no reply)"
+                    await send_json(
+                        {"type": "turn", "id": utt_id, "transcript": transcript, "reply": reply_text}
+                    )
+                    streamed = await tts.finish()
+                    if not streamed and not tts.cancelled:
+                        mp3 = await speech.synthesize(reply_text)
+                        if not tts.cancelled:
+                            await start_audio("mp3")
+                            await send_audio(mp3)
+                    if audio_started:
+                        await send_json({"type": "audio_end", "id": utt_id})
+                except ElevenLabsSpeechError as exc:
+                    await send_json({"type": "error", "id": utt_id, "message": str(exc)})
+                except (WebSocketDisconnect, RuntimeError):
+                    pass
+                finally:
+                    await tts.close()
+                    if speaking["tts"] is tts:
+                        speaking["tts"] = None
+
+        async def finish_utterance(utt_id: Any, transcript: str) -> None:
+            transcript = transcript.strip()
+            if not transcript:
+                await send_json(
+                    {"type": "error", "id": utt_id, "message": "couldn't hear anything — try again"}
+                )
+                return
+            await send_json({"type": "transcript_final", "id": utt_id, "text": transcript})
+            task = asyncio.create_task(run_turn(utt_id, transcript))
+            turn_tasks.add(task)
+            task.add_done_callback(turn_tasks.discard)
+
+        # Legacy clients send a compressed blob + end_utterance; streaming clients send
+        # start_utterance, raw 16 kHz PCM16 chunks, then end_utterance.
         audio_buf = bytearray()
+        streaming = False
+        utt_id: Any = None
+        transcriber: RealtimeTranscriber | None = None
+        # Opening the upstream STT socket takes ~1-2 s, so streaming clients keep one
+        # connected ahead of the next press; each transcriber reads its id from `box`.
+        spare: tuple[RealtimeTranscriber, dict[str, Any]] | None = None
+
+        def new_transcriber() -> tuple[RealtimeTranscriber, dict[str, Any]]:
+            box: dict[str, Any] = {"id": None}
+
+            async def on_partial(text: str) -> None:
+                await send_json({"type": "transcript_partial", "id": box["id"], "text": text})
+
+            rt = speech.realtime(on_partial)
+            rt.start()
+            return rt, box
+
         try:
             while True:
                 message = await ws.receive()
@@ -311,6 +435,8 @@ def create_app(
                 raw_bytes = message.get("bytes")
                 if raw_bytes is not None:
                     audio_buf.extend(raw_bytes)
+                    if streaming and transcriber is not None:
+                        transcriber.send(raw_bytes)
                     continue
 
                 raw_text = message.get("text")
@@ -321,50 +447,67 @@ def create_app(
                 except Exception:
                     continue
 
-                if frame.get("type") != "end_utterance":
+                kind = frame.get("type")
+                if kind == "prewarm":
+                    if spare is None or not spare[0].alive:
+                        spare = new_transcriber()
+                    continue
+                if kind == "start_utterance":
+                    if speaking["tts"] is not None:
+                        await speaking["tts"].cancel()  # barge-in: stop generating the old reply's audio
+                    if transcriber is not None:
+                        await transcriber.close()
+                    audio_buf.clear()
+                    streaming = True
+                    utt_id = frame.get("id")
+                    if spare is not None and spare[0].alive:
+                        transcriber, box = spare
+                    else:
+                        if spare is not None:
+                            await spare[0].close()
+                        transcriber, box = new_transcriber()
+                    box["id"] = utt_id
+                    spare = new_transcriber()
+                    continue
+
+                if kind != "end_utterance":
                     continue
                 if not audio_buf:
-                    await ws.send_text(
-                        protocol.dumps({"type": "error", "message": "no audio received"})
-                    )
+                    await send_json({"type": "error", "id": utt_id, "message": "no audio received"})
+                    streaming = False
                     continue
 
                 utterance = bytes(audio_buf)
                 audio_buf.clear()
+                current_id, was_streaming, rt = utt_id, streaming, transcriber
+                streaming, utt_id, transcriber = False, None, None
 
                 try:
-                    transcript = await speech.transcribe(utterance)
+                    transcript = ""
+                    if rt is not None:
+                        try:
+                            transcript = await rt.finish()
+                        except ElevenLabsSpeechError:
+                            transcript = ""  # realtime unreachable: batch STT below
                     if not transcript.strip():
-                        await ws.send_text(
-                            protocol.dumps(
-                                {"type": "error", "message": "couldn't hear anything — try again"}
+                        if was_streaming:
+                            transcript = await speech.transcribe(
+                                pcm16_to_wav(utterance), content_type="audio/wav"
                             )
-                        )
-                        continue
-
-                    result = await dispatch_inbound(
-                        app.state.runner,
-                        {
-                            "channel": "voice",
-                            "text": transcript,
-                            "peer": {"kind": "direct", "id": conn_id},
-                        },
-                        wait=True,
-                    )
-                    reply_text = (result.get("outbound") or {}).get("text") or "(no reply)"
-
-                    await ws.send_text(
-                        protocol.dumps(
-                            {"type": "turn", "transcript": transcript, "reply": reply_text}
-                        )
-                    )
-
-                    audio_reply = await speech.synthesize(reply_text)
-                    await ws.send_bytes(audio_reply)
+                        else:
+                            transcript = await speech.transcribe(utterance)
+                    await finish_utterance(current_id, transcript)
                 except ElevenLabsSpeechError as exc:
-                    await ws.send_text(protocol.dumps({"type": "error", "message": str(exc)}))
+                    await send_json({"type": "error", "id": current_id, "message": str(exc)})
         except WebSocketDisconnect:
             pass
+        finally:
+            if transcriber is not None:
+                await transcriber.close()
+            if spare is not None:
+                await spare[0].close()
+            for task in turn_tasks:
+                task.cancel()
 
     return app
 

@@ -57,6 +57,7 @@
     }
     .msg.user { align-self: flex-end; background: var(--user); }
     .msg.assistant { align-self: flex-start; background: var(--bot); }
+    .msg.user.pending { color: var(--muted); }
     .msg.meta {
       align-self: center;
       border: 0;
@@ -110,10 +111,97 @@
     const hint = document.getElementById("hint");
     const player = document.getElementById("player");
 
+    const TARGET_RATE = 16000;
+    const CHUNK_SAMPLES = TARGET_RATE / 10; // ~100 ms per frame
+    const TAIL_MS = 200; // keep capturing briefly after release so the last word isn't clipped
+    const IDLE_HINT = "Press and hold, speak, then release.";
+
     let ws = null;
-    let mediaRecorder = null;
-    let chunks = [];
-    let recording = false;
+    let audioCtx = null;
+    let recording = false; // button held
+    let capturing = false; // sending PCM (recording + release tail)
+    let tailTimer = null;
+    let pcmQueue = [];
+    let pcmQueued = 0;
+    let resampleCarry = new Float32Array(0);
+    let resamplePos = 0;
+    let uttId = 0;
+    // Browser recognition gives word-by-word interim text; ElevenLabs partials only
+    // arrive about once a second, so they are just the fallback display.
+    const BrowserSR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recog = null;
+    const browserLiveIds = new Set();
+    const userBubbles = new Map();
+    const botBubbles = new Map();
+    // Reply audio arrives as audio_start{id, format}, binary chunks, audio_end.
+    // Replies to utterances older than mutedBelow were barged in on and are dropped.
+    let mutedBelow = 0;
+    let incoming = null; // {id, format, skip, mp3Parts}
+    let pcmCarry = null;
+    let nextPlayTime = 0;
+    const liveSources = new Set();
+
+    function stopPlayback() {
+      player.pause();
+      player.currentTime = 0;
+      if (player.src) URL.revokeObjectURL(player.src);
+      player.removeAttribute("src");
+      player.load();
+      for (const src of liveSources) { try { src.stop(); } catch {} }
+      liveSources.clear();
+      nextPlayTime = 0;
+      pcmCarry = null;
+    }
+
+    function playPcmChunk(data, sampleRate) {
+      if (!audioCtx) return;
+      let bytes = new Uint8Array(data);
+      if (pcmCarry) {
+        const joined = new Uint8Array(pcmCarry.length + bytes.length);
+        joined.set(pcmCarry);
+        joined.set(bytes, pcmCarry.length);
+        bytes = joined;
+        pcmCarry = null;
+      }
+      if (bytes.length % 2) {
+        pcmCarry = bytes.slice(-1);
+        bytes = bytes.slice(0, -1);
+      }
+      if (!bytes.length) return;
+      const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
+      const buffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
+      const channel = buffer.getChannelData(0);
+      for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 0x8000;
+      const src = audioCtx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(audioCtx.destination);
+      const startAt = Math.max(audioCtx.currentTime + 0.03, nextPlayTime);
+      src.start(startAt);
+      nextPlayTime = startAt + buffer.duration;
+      liveSources.add(src);
+      src.onended = () => liveSources.delete(src);
+    }
+
+    function onAudioStart(frame) {
+      const muted = frame.id != null && frame.id < mutedBelow;
+      if (!muted) stopPlayback();
+      incoming = { id: frame.id, format: frame.format, skip: muted || recording, mp3Parts: [] };
+    }
+
+    function onAudioChunk(data) {
+      if (!incoming || incoming.skip || recording) return;
+      const pcm = /^pcm_(\d+)$/.exec(incoming.format || "");
+      if (pcm) playPcmChunk(data, Number(pcm[1]));
+      else incoming.mp3Parts.push(data);
+    }
+
+    function onAudioEnd() {
+      if (incoming && !incoming.skip && !recording && incoming.mp3Parts.length) {
+        player.src = URL.createObjectURL(new Blob(incoming.mp3Parts, { type: "audio/mpeg" }));
+        player.play().catch(() => {});
+      }
+      incoming = null;
+    }
 
     function setStatus(text, cls) {
       statusEl.textContent = text;
@@ -137,7 +225,8 @@
       ws.onopen = async () => {
         setStatus("requesting microphone…");
         try {
-          await setupRecorder();
+          ws.send(JSON.stringify({ type: "prewarm" }));
+          if (!audioCtx) await setupRecorder();
           setStatus("connected", "ok");
           talkBtn.disabled = false;
         } catch (err) {
@@ -148,57 +237,198 @@
 
       ws.onmessage = (ev) => {
         if (typeof ev.data !== "string") {
-          const blob = new Blob([ev.data], { type: "audio/mpeg" });
-          player.src = URL.createObjectURL(blob);
-          player.play().catch(() => {});
+          onAudioChunk(ev.data);
           return;
         }
         let frame;
         try { frame = JSON.parse(ev.data); } catch { return; }
 
-        if (frame.type === "turn") {
-          addMsg("user", frame.transcript);
-          addMsg("assistant", frame.reply);
-          hint.textContent = "Press and hold, speak, then release.";
+        const id = frame.id;
+        if (frame.type === "audio_start") {
+          onAudioStart(frame);
+        } else if (frame.type === "audio_end") {
+          onAudioEnd();
+        } else if (frame.type === "transcript_partial") {
+          if (!browserLiveIds.has(id)) setUserText(id, frame.text, true);
+        } else if (frame.type === "transcript_final") {
+          setUserText(id, frame.text, false);
+        } else if (frame.type === "reply_delta") {
+          const bot = botBubble(id);
+          bot.textContent += frame.delta;
+          log.scrollTop = log.scrollHeight;
+          hint.textContent = IDLE_HINT;
+        } else if (frame.type === "turn") {
+          setUserText(id, frame.transcript, false);
+          botBubble(id).textContent = frame.reply;
+          log.scrollTop = log.scrollHeight;
+          hint.textContent = IDLE_HINT;
         } else if (frame.type === "error") {
+          const bubble = userBubbles.get(id);
+          if (bubble && bubble.classList.contains("pending")) bubble.remove();
           addMsg("meta", frame.message);
-          hint.textContent = "Press and hold, speak, then release.";
+          hint.textContent = IDLE_HINT;
         }
       };
 
       ws.onclose = () => {
         setStatus("disconnected — retrying…", "bad");
         talkBtn.disabled = true;
+        stopTalking();
+        endUtterance();
+        incoming = null;
         setTimeout(connect, 1500);
       };
 
       ws.onerror = () => setStatus("connection error", "bad");
     }
 
-    async function setupRecorder() {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        chunks = [];
-        if (blob.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(await blob.arrayBuffer());
-          ws.send(JSON.stringify({ type: "end_utterance" }));
-          hint.textContent = "Thinking…";
+    function setUserText(id, text, pending) {
+      let bubble = userBubbles.get(id);
+      if (!bubble) {
+        bubble = addMsg("user", "");
+        userBubbles.set(id, bubble);
+      }
+      if (pending && !bubble.classList.contains("pending") && bubble.textContent) return;
+      bubble.textContent = text || "…";
+      bubble.classList.toggle("pending", pending);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function botBubble(id) {
+      let bubble = botBubbles.get(id);
+      if (!bubble) {
+        bubble = addMsg("assistant", "");
+        botBubbles.set(id, bubble);
+      }
+      return bubble;
+    }
+
+    const WORKLET_SRC = `
+      class PcmTap extends AudioWorkletProcessor {
+        process(inputs) {
+          const ch = inputs[0] && inputs[0][0];
+          if (ch) this.port.postMessage(ch.slice(0));
+          return true;
         }
-      };
+      }
+      registerProcessor("pcm-tap", PcmTap);
+    `;
+
+    async function setupRecorder() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+      audioCtx = new AudioContext();
+      const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: "application/javascript" }));
+      await audioCtx.audioWorklet.addModule(url);
+      const source = audioCtx.createMediaStreamSource(stream);
+      const tap = new AudioWorkletNode(audioCtx, "pcm-tap");
+      tap.port.onmessage = (e) => { if (capturing) pushSamples(e.data); };
+      source.connect(tap);
+      // The tap writes no output, but some browsers only pull nodes that reach the destination.
+      tap.connect(audioCtx.destination);
+    }
+
+    // Linear-interpolation resample from the context rate down to 16 kHz.
+    function resample(input) {
+      const ratio = audioCtx.sampleRate / TARGET_RATE;
+      const buf = new Float32Array(resampleCarry.length + input.length);
+      buf.set(resampleCarry);
+      buf.set(input, resampleCarry.length);
+      const out = [];
+      let pos = resamplePos;
+      while (pos + 1 < buf.length) {
+        const i = Math.floor(pos);
+        const frac = pos - i;
+        out.push(buf[i] + (buf[i + 1] - buf[i]) * frac);
+        pos += ratio;
+      }
+      const keep = Math.floor(pos);
+      resampleCarry = buf.slice(keep);
+      resamplePos = pos - keep;
+      return out;
+    }
+
+    function pushSamples(input) {
+      const samples = resample(input);
+      const pcm = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      pcmQueue.push(pcm);
+      pcmQueued += pcm.length;
+      if (pcmQueued >= CHUNK_SAMPLES) flushPcm();
+    }
+
+    function flushPcm() {
+      if (!pcmQueued) return;
+      const merged = new Int16Array(pcmQueued);
+      let off = 0;
+      for (const part of pcmQueue) { merged.set(part, off); off += part.length; }
+      pcmQueue = [];
+      pcmQueued = 0;
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(merged.buffer);
+    }
+
+    function startBrowserRecognition(id) {
+      if (!BrowserSR) return;
+      try {
+        recog = new BrowserSR();
+        recog.continuous = true;
+        recog.interimResults = true;
+        recog.lang = navigator.language || "en-US";
+        recog.onresult = (e) => {
+          let text = "";
+          for (const r of e.results) text += r[0].transcript;
+          browserLiveIds.add(id);
+          setUserText(id, text.trim(), true);
+        };
+        recog.onerror = () => {};
+        recog.start();
+      } catch {
+        recog = null;
+      }
+    }
+
+    function stopBrowserRecognition() {
+      if (!recog) return;
+      try { recog.stop(); } catch {}
+      recog = null;
+    }
+
+    function endUtterance() {
+      if (tailTimer) { clearTimeout(tailTimer); tailTimer = null; }
+      if (!capturing) return;
+      capturing = false;
+      stopBrowserRecognition();
+      flushPcm();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "end_utterance" }));
+        hint.textContent = "Thinking…";
+      }
     }
 
     function startTalking() {
-      if (!mediaRecorder || recording || mediaRecorder.state === "recording") return;
+      if (!audioCtx || recording || !ws || ws.readyState !== WebSocket.OPEN) return;
+      endUtterance(); // a press during the previous release tail closes that utterance first
+      audioCtx.resume();
       recording = true;
+      capturing = true;
+      stopPlayback();
+      if (incoming) incoming.skip = true;
       talkBtn.classList.add("recording");
       talkBtn.textContent = "Listening…";
-      chunks = [];
-      mediaRecorder.start();
+      hint.textContent = "Listening…";
+      pcmQueue = [];
+      pcmQueued = 0;
+      resampleCarry = new Float32Array(0);
+      resamplePos = 0;
+      uttId++;
+      mutedBelow = uttId;
+      setUserText(uttId, "", true);
+      ws.send(JSON.stringify({ type: "start_utterance", id: uttId }));
+      startBrowserRecognition(uttId);
     }
 
     function stopTalking() {
@@ -206,8 +436,16 @@
       recording = false;
       talkBtn.classList.remove("recording");
       talkBtn.textContent = "Hold to talk";
-      if (mediaRecorder.state === "recording") mediaRecorder.stop();
+      tailTimer = setTimeout(endUtterance, TAIL_MS);
     }
+
+    function prewarm() {
+      if (ws && ws.readyState === WebSocket.OPEN && !recording) {
+        ws.send(JSON.stringify({ type: "prewarm" }));
+      }
+    }
+    talkBtn.addEventListener("pointerenter", prewarm);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) prewarm(); });
 
     talkBtn.addEventListener("mousedown", startTalking);
     talkBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startTalking(); });
