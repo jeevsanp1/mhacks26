@@ -88,6 +88,25 @@ async def test_runner_injects_memory_into_instructions(settings: Settings) -> No
     )
 
 
+def test_remember_routes_renames_to_identity(settings: Settings) -> None:
+    from claw.memory import MemoryStore, extract_rename, ensure_workspace
+
+    ensure_workspace(settings)
+    assert extract_rename("call you Reba") == "Reba"
+    assert extract_rename("The user renamed me to Reba") == "Reba"
+    assert extract_rename("call me Bob") is None  # user's name, not agent
+    assert extract_rename("favorite color is blue") is None
+
+    store = MemoryStore(settings.agent_home)
+    store.append("The user renamed me to Claw", path="MEMORY.md")
+    out = store.remember("call you Reba")
+    assert "IDENTITY.md" in out
+    identity = (settings.agent_home / "IDENTITY.md").read_text(encoding="utf-8")
+    assert "Name: Reba" in identity
+    memory = store.get("MEMORY.md")
+    assert "renamed me" not in memory.lower()
+
+
 @pytest.mark.asyncio
 async def test_remember_tool_writes_long_term_memory(settings: Settings) -> None:
     ensure_workspace(settings)

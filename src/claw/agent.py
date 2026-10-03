@@ -9,6 +9,7 @@ from pydantic_ai.capabilities import LocalWorkspace, WebSearch
 from pydantic_ai_harness import Coder
 
 from claw.automations import register_automations_tool
+from claw.computer_use import register_computer_use_tool
 from claw.config import Settings, get_settings
 from claw.memory import (
     ClawDeps,
@@ -22,7 +23,10 @@ from claw.web_search import register_web_search_tool
 __all__ = ["ClawDeps", "build_agent", "get_agent", "reset_agent_cache", "INSTRUCTIONS"]
 
 INSTRUCTIONS = (
-    "You are Claw, a local operator assistant. "
+    "You are the assistant named in IDENTITY.md (Project Context). "
+    "IDENTITY.md Name: is the only source of truth for your name — never contradict it "
+    "with MEMORY.md. If the user renames you, call remember with that fact "
+    "(it updates IDENTITY.md). Do not put your own name in MEMORY.md. "
     "Use tools when they help answer accurately. "
     "Prefer concise, actionable replies. "
     "When changing files or running commands, say what you did. "
@@ -32,7 +36,11 @@ INSTRUCTIONS = (
     "Automations (OpenClaw cron): use the `automations` tool for any scheduled work — "
     "one-shots, intervals, or cron expressions — with a `job` object containing "
     "`schedule` + `payload`. Do not use shell sleep/OS crontab as a timer; the "
-    "Gateway CronService runs due jobs."
+    "Gateway CronService runs due jobs.\n\n"
+    "Computer use: when the user wants you to look at or operate the host desktop UI, "
+    "use the `computer` tool. Start with action='screenshot', then click/move/type/key "
+    "using coordinates from that screenshot image. Prefer computer over guessing "
+    "window titles or asking the user to click."
 )
 
 
@@ -83,9 +91,9 @@ def _register_memory(agent: Agent[ClawDeps, str]) -> None:
 
     @agent.tool
     def remember(ctx: RunContext[ClawDeps], fact: str) -> str:
-        """Save a durable fact to long-term MEMORY.md. Prefer this when the user says remember."""
+        """Save a durable fact. Renames update IDENTITY.md; other facts go to MEMORY.md."""
         store = MemoryStore(ctx.deps.settings.agent_home)
-        return store.append(fact, path="MEMORY.md")
+        return store.remember(fact)
 
     @agent.tool
     def memory_append(
@@ -111,7 +119,7 @@ def build_agent(settings: Settings | None = None) -> Agent[ClawDeps, str]:
         )
         _register_memory(agent)
         register_automations_tool(agent)
-        # Skip live DuckDuckGo: TestModel invokes every tool and would hit the network.
+        # Skip live DuckDuckGo / computer-use: TestModel invokes every tool.
         return agent
 
     capabilities: list[object] = [
@@ -131,6 +139,8 @@ def build_agent(settings: Settings | None = None) -> Agent[ClawDeps, str]:
     _register_memory(agent)
     register_automations_tool(agent)
     register_web_search_tool(agent)
+    if settings.computer_use:
+        register_computer_use_tool(agent)
     return agent
 
 

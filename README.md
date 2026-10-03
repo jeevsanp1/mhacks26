@@ -7,7 +7,8 @@ gateway or run **embedded** turns (`agent exec`) without one.
 
 The agent loop is [Pydantic AI](https://ai.pydantic.dev/) with
 [Pydantic AI Harness](https://pydantic.dev/docs/ai/harness/overview/) capabilities
-(`LocalWorkspace`, `Coder`, native `WebSearch` when supported, plus always-on DuckDuckGo `web_search`).
+(`LocalWorkspace`, `Coder`, native `WebSearch` when supported, plus always-on DuckDuckGo `web_search`
+and a host `computer` tool for screenshots + pointer/keyboard control).
 
 This is **not** a full OpenClaw clone (no messaging channels, device identity,
 or protocol v4). It keeps a compatible *feel*: `connect` handshake, `req`/`res`/`event`
@@ -64,6 +65,7 @@ Copy `.env.example` to `.env` and set keys as needed.
 | `CLAW_SPACETIME_DB` | unset | Database name (e.g. `claw-jobs`) — enables multi-worker job claims |
 | `CLAW_SPACETIME_TOKEN` | unset | Optional Bearer token for SpacetimeDB |
 | `CLAW_SPACETIME_WORKER_ID` | `claw-<pid>` | Worker id used when claiming jobs |
+| `CLAW_COMPUTER_USE` | `1` | Host desktop control via `computer` tool (`0`/`false`/`off` disables) |
 
 For Microsoft Foundry, prefer `CLAW_MODEL=azure:<deployment-name>` with
 `AZURE_OPENAI_ENDPOINT=https://<resource>.services.ai.azure.com/openai/v1/`.
@@ -72,7 +74,10 @@ The project URL (`/api/projects/...`) is for management APIs; chat uses `/openai
 Native `WebSearch` is disabled for `azure:` / `azure-responses:` models; use the DuckDuckGo `web_search` tool instead (always registered).
 
 **Safety:** `Coder` includes unrestricted shell on the host workspace (same as
-Pydantic AI Harness defaults). The gateway binds to localhost by default.
+Pydantic AI Harness defaults). `computer` can move the real mouse/keyboard and
+capture the screen on the gateway host — disable with `CLAW_COMPUTER_USE=0`.
+On macOS, grant **Accessibility** and **Screen Recording** to your terminal or
+Python runtime. The gateway binds to localhost by default.
 
 ## Usage
 
@@ -99,6 +104,7 @@ claw cron watch   # headless executor if gateway is not up
 
 # Terminal A — control plane
 claw gateway
+# Open the web chat: http://127.0.0.1:18789/
 
 # Terminal B — one turn through the gateway
 claw agent -m "hello"
@@ -188,11 +194,12 @@ CLAW_MODEL=test uv run claw agent exec -m "ping"
 
 ```
 src/claw/
-  agent.py       # Pydantic AI agent factory
-  runner.py      # session lanes, streaming, waiters
-  sessions.py    # disk-backed message history
-  events.py      # OpenClaw-style event mapping
-  gateway/       # FastAPI WebSocket control plane
-  cli.py         # typer entrypoints
-  tui.py         # Textual chat UI
+  agent.py         # Pydantic AI agent factory
+  computer_use.py  # host screenshot + pointer/keyboard tool
+  runner.py        # session lanes, streaming, waiters
+  sessions.py      # disk-backed message history
+  events.py        # OpenClaw-style event mapping
+  gateway/         # FastAPI WebSocket control plane
+  cli.py           # typer entrypoints
+  tui.py           # Textual chat UI
 ```

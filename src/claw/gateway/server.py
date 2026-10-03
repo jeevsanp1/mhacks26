@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse
 from starlette.websockets import WebSocketState
 
 from claw.config import Settings, get_settings
@@ -16,6 +18,8 @@ from claw.gateway import methods, protocol
 from claw.heartbeat import HeartbeatService
 from claw.runner import AgentRunner
 from claw.scheduler import CronService
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 class Connection:
@@ -90,6 +94,12 @@ def create_app(
         unsub()
 
     app = FastAPI(title="claw gateway", lifespan=lifespan)
+
+    @app.get("/", response_class=HTMLResponse)
+    async def chat() -> FileResponse:
+        """Simple browser chat over the gateway WebSocket."""
+        path = STATIC_DIR / "dashboard.html"
+        return FileResponse(path, media_type="text/html; charset=utf-8")
 
     @app.get("/health")
     async def http_health() -> dict[str, Any]:

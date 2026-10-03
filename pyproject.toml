@@ -16,6 +16,10 @@ dependencies = [
     "textual>=8.2.8",
     "croniter>=6.2.4",
     "ddgs>=9.16.0",
+    "mss>=9.0.0",
+    "pillow>=10.0.0",
+    "pyautogui>=0.9.54",
+    "pyperclip>=1.9.0",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +37,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/claw"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/claw/gateway/static" = "claw/gateway/static"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

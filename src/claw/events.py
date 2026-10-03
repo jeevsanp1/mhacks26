@@ -129,6 +129,13 @@ def _truncate(value: Any, limit: int = 4000) -> Any:
         if isinstance(value, str) and len(value) > limit:
             return value[:limit] + "…"
         return value
+    # Avoid dumping screenshot bytes into gateway/TUI payloads.
+    data = getattr(value, "data", None)
+    media_type = getattr(value, "media_type", None)
+    if isinstance(data, (bytes, bytearray)) and media_type:
+        return f"<{media_type} {len(data)} bytes>"
+    if isinstance(value, (list, tuple)):
+        return [_truncate(v, limit) for v in value]
     text = repr(value)
     if len(text) > limit:
         return text[:limit] + "…"

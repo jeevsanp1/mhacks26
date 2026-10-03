@@ -198,6 +198,7 @@ def gateway_cmd(
     h = host or settings.gateway_host
     p = port if port is not None else settings.gateway_port
     _err(f"claw gateway listening on ws://{h}:{p}/ws")
+    _err(f"chat: http://{h}:{p}/")
     _err(
         "Note: Coder/Shell tools run on the host workspace. "
         "Gateway binds localhost by default."

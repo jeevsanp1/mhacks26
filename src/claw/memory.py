@@ -22,14 +22,21 @@ _SAFE_REL = re.compile(r"^(MEMORY\.md|memory/[A-Za-z0-9._@+-]+\.md)$")
 
 DEFAULT_AGENTS = """# AGENTS.md — operating instructions
 
-You are Claw, a local operator assistant.
+You are the assistant described in IDENTITY.md (see Name:).
+
+## Identity (source of truth)
+
+- Your name and vibe live only in `IDENTITY.md`.
+- When the user renames you, update `IDENTITY.md` via `remember` (it routes renames there).
+- Never store your own name in `MEMORY.md` — that causes contradictions with IDENTITY.md.
+- If IDENTITY.md and MEMORY.md disagree about your name, IDENTITY.md wins.
 
 ## Memory
 
-- Durable facts belong in `MEMORY.md` (curated, short).
+- Durable facts about the *user* and world belong in `MEMORY.md` (curated, short).
 - Running notes belong in `memory/YYYY-MM-DD.md` (daily log).
 - Use `memory_search` / `memory_get` to recall.
-- When the user says "remember …", call `remember(fact)` immediately (writes MEMORY.md).
+- When the user says "remember …", call `remember(fact)` immediately.
 - Use `memory_append` for daily running notes.
 - Do not rely on chat history alone for long-lived preferences.
 
@@ -42,6 +49,99 @@ You are Claw, a local operator assistant.
 - Jobs are stored under `.claw/cron/jobs/`; Gateway CronService executes them.
 - Never use shell `sleep` / OS crontab as a timer.
 """
+
+# Agent self-rename only ("call me X" is the *user's* name → MEMORY/USER, not here).
+_RENAME_PATTERNS = (
+    re.compile(
+        r"^\s*(?:please\s+)?(?:i(?:'ll| will)\s+)?call\s+you\s+"
+        r"(?P<name>[\w][\w .'-]{0,40})\s*$",
+        re.I,
+    ),
+    re.compile(
+        r"^\s*(?:your\s+name\s+is|rename(?:d)?\s+you\s+to)\s+"
+        r"(?P<name>[\w][\w .'-]{0,40})\s*$",
+        re.I,
+    ),
+    re.compile(
+        r"^\s*you(?:'re| are)\s+(?:now\s+)?(?:called|named)\s+"
+        r"(?P<name>[\w][\w .'-]{0,40})\s*$",
+        re.I,
+    ),
+    re.compile(
+        r"^\s*(?:the\s+user\s+)?(?:re)?named\s+me\s+(?:to\s+)?(?P<name>[\w][\w .'-]{0,40})\s*$",
+        re.I,
+    ),
+    re.compile(
+        r"^\s*i(?:'m| am)\s+(?:now\s+)?(?:called|named)\s+"
+        r"(?P<name>[\w][\w .'-]{0,40})\s*$",
+        re.I,
+    ),
+)
+
+
+def extract_rename(fact: str) -> str | None:
+    """If fact is an agent rename, return the new name; else None."""
+    text = (fact or "").strip().strip("\"'")
+    if not text:
+        return None
+    for pat in _RENAME_PATTERNS:
+        m = pat.match(text)
+        if m:
+            name = m.group("name").strip().rstrip(".")
+            if name and name.lower() not in {"me", "you", "the"}:
+                return name
+    return None
+
+
+def purge_identity_name_from_memory(workspace: Path) -> int:
+    """Drop MEMORY.md bullets that claim the agent's name (IDENTITY owns that)."""
+    path = workspace / MEMORY_LONG_TERM
+    if not path.is_file():
+        return 0
+    lines = path.read_text(encoding="utf-8").splitlines()
+    keep: list[str] = []
+    removed = 0
+    name_claim = re.compile(
+        r"(?i)(?:renamed me|my name is|call me|named me|name is now)\b"
+    )
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("-") and name_claim.search(stripped):
+            removed += 1
+            continue
+        keep.append(line)
+    if removed:
+        path.write_text("\n".join(keep).rstrip() + "\n", encoding="utf-8")
+    return removed
+
+
+def set_identity_name(workspace: Path, name: str) -> str:
+    """Update the ``Name:`` line in IDENTITY.md (create file if needed)."""
+    clean = name.strip()
+    if not clean:
+        raise ValueError("name must be non-empty")
+    path = workspace / "IDENTITY.md"
+    if path.is_file():
+        lines = path.read_text(encoding="utf-8").splitlines()
+    else:
+        lines = DEFAULT_IDENTITY.strip().splitlines()
+    found = False
+    out: list[str] = []
+    for line in lines:
+        if re.match(r"(?i)^\s*name\s*:", line):
+            out.append(f"Name: {clean}")
+            found = True
+        else:
+            out.append(line)
+    if not found:
+        # Insert after title if present
+        if out and out[0].lstrip().startswith("#"):
+            out.insert(1, "")
+            out.insert(2, f"Name: {clean}")
+        else:
+            out.insert(0, f"Name: {clean}")
+    path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+    return f"updated IDENTITY.md Name → {clean}"
 
 DEFAULT_SOUL = """# SOUL.md — persona
 
@@ -223,6 +323,20 @@ class MemoryStore:
         end = max(end, start)
         excerpt = "\n".join(lines[start:end])
         return excerpt if excerpt else "(empty range)"
+
+    def remember(self, fact: str) -> str:
+        """Save a durable fact; agent renames update IDENTITY.md instead of MEMORY.md."""
+        note = fact.strip()
+        if not note:
+            raise ValueError("fact must be non-empty")
+        new_name = extract_rename(note)
+        if new_name:
+            msg = set_identity_name(self.workspace, new_name)
+            purged = purge_identity_name_from_memory(self.workspace)
+            if purged:
+                return f"{msg}; removed {purged} conflicting MEMORY.md name note(s)"
+            return msg
+        return self.append(note, path=MEMORY_LONG_TERM)
 
     def append(self, text: str, *, path: str = "daily") -> str:
         note = text.strip()

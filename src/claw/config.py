@@ -46,6 +46,7 @@ class Settings:
     spacetime_db: str | None = None
     spacetime_token: str | None = None
     spacetime_worker_id: str = "claw-worker"
+    computer_use: bool = True
 
     @property
     def sessions_dir(self) -> Path:
@@ -112,6 +113,8 @@ def get_settings() -> Settings:
     spacetime_uri = os.getenv("CLAW_SPACETIME_URI", "").strip() or None
     spacetime_db = os.getenv("CLAW_SPACETIME_DB", "").strip() or None
     agent_id = os.getenv("CLAW_AGENT_ID", DEFAULT_AGENT_ID).strip() or DEFAULT_AGENT_ID
+    computer_raw = os.getenv("CLAW_COMPUTER_USE", "1").strip().lower()
+    computer_use = computer_raw not in {"0", "false", "no", "off"}
     return Settings(
         model=os.getenv("CLAW_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
         workspace=workspace,
@@ -138,4 +141,5 @@ def get_settings() -> Settings:
             os.getenv("CLAW_SPACETIME_WORKER_ID", "").strip()
             or f"claw-{os.getpid()}"
         ),
+        computer_use=computer_use,
     )
