@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claw chat</title>
+  <style>
+    :root {
+      --bg: #f4f2ee;
+      --ink: #1a1a1a;
+      --muted: #6b6b6b;
+      --line: #d8d4cc;
+      --user: #e8e4dc;
+      --bot: #fff;
+      --accent: #1a1a1a;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 650;
+    }
+    #status { font-size: 0.85rem; color: var(--muted); }
+    #status.ok { color: #2f6b4f; }
+    #status.bad { color: #9b2c2c; }
+    #log {
+      flex: 1;
+      overflow: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .msg {
+      max-width: 42rem;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+    .msg.user { align-self: flex-end; background: var(--user); }
+    .msg.assistant { align-self: flex-start; background: var(--bot); }
+    .msg.meta {
+      align-self: center;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0.2rem;
+    }
+    form {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+    input[type="text"] {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.7rem 0.8rem;
+      font: inherit;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      font: inherit;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: wait; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Claw</h1>
+    <span id="status">connecting…</span>
+  </header>
+  <div id="log"></div>
+  <form id="form">
+    <input id="input" type="text" placeholder="Message…" autocomplete="off" autofocus />
+    <button id="send" type="submit" disabled>Send</button>
+  </form>
+  <script>
+    const log = document.getElementById("log");
+    const statusEl = document.getElementById("status");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    const sessionKey = "web";
+    let ws = null;
+    let nextId = 1;
+    let connectId = null;
+    let pending = null; // { agentId, waitId, runId, bubble, buf }
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = cls || "";
+    }
+
+    function escapeHtml(s) {
+      return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderText(el, text) {
+      // Escape HTML, then turn **bold** into <strong>
+      el.innerHTML = escapeHtml(text).replace(
+        /\*\*([^*]+)\*\*/g,
+        "<strong>$1</strong>"
+      );
+    }
+
+    function addMsg(role, text) {
+      const el = document.createElement("div");
+      el.className = `msg ${role}`;
+      if (role === "assistant") renderText(el, text);
+      else el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+      return el;
+    }
+
+    function req(method, params) {
+      const id = String(nextId++);
+      ws.send(JSON.stringify({ type: "req", id, method, params: params || {} }));
+      return id;
+    }
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+      ws.onopen = () => {
+        connectId = req("connect", {
+          minProtocol: 1,
+          maxProtocol: 1,
+          role: "operator",
+          client: { id: "web", version: "0.1.0", mode: "operator" },
+        });
+      };
+
+      ws.onmessage = (ev) => {
+        let frame;
+        try { frame = JSON.parse(ev.data); } catch { return; }
+
+        if (frame.type === "res" && frame.id === connectId) {
+          if (!frame.ok) {
+            setStatus("auth failed", "bad");
+            addMsg("meta", frame.error?.message || "connect failed");
+            return;
+          }
+          setStatus("connected", "ok");
+          sendBtn.disabled = false;
+          return;
+        }
+
+        if (pending && frame.type === "res" && frame.id === pending.agentId) {
+          if (!frame.ok) {
+            renderText(pending.bubble, frame.error?.message || "rejected");
+            pending = null;
+            sendBtn.disabled = false;
+            return;
+          }
+          pending.runId = frame.payload?.runId;
+          pending.waitId = req("agent.wait", { runId: pending.runId });
+          return;
+        }
+
+        if (pending && frame.type === "event" && frame.event === "agent") {
+          const p = frame.payload || {};
+          if (pending.runId && p.runId && p.runId !== pending.runId) return;
+          if (p.stream === "assistant") {
+            const delta = (p.data && p.data.delta) || "";
+            pending.buf += delta;
+            renderText(pending.bubble, pending.buf || "…");
+            log.scrollTop = log.scrollHeight;
+          }
+          return;
+        }
+
+        if (pending && frame.type === "res" && frame.id === pending.waitId) {
+          if (!frame.ok) {
+            renderText(pending.bubble, frame.error?.message || "wait failed");
+          } else {
+            const out = frame.payload?.output;
+            if (!pending.buf && out) renderText(pending.bubble, out);
+            if (frame.payload?.status && frame.payload.status !== "ok") {
+              renderText(
+                pending.bubble,
+                `${frame.payload.status}: ${frame.payload.error || ""}`.trim()
+              );
+            }
+            if (!pending.bubble.textContent) renderText(pending.bubble, "(empty)");
+          }
+          pending = null;
+          sendBtn.disabled = false;
+          input.focus();
+        }
+      };
+
+      ws.onclose = () => {
+        setStatus("disconnected — retrying…", "bad");
+        sendBtn.disabled = true;
+        pending = null;
+        setTimeout(connect, 1500);
+      };
+
+      ws.onerror = () => {
+        setStatus("connection error", "bad");
+      };
+    }
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN || pending) return;
+
+      addMsg("user", text);
+      input.value = "";
+      const bubble = addMsg("assistant", "…");
+      sendBtn.disabled = true;
+      const agentId = req("agent", {
+        message: text,
+        sessionKey,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      pending = { agentId, waitId: null, runId: null, bubble, buf: "" };
+    });
+
+    connect();
+  </script>
+</body>
+</html>
