@@ -36,6 +36,17 @@ from claw.sessions import SessionStore, new_session_key, sanitize_session_key
 Role = Literal["user", "assistant", "meta", "tool"]
 
 
+def escape_rich_markup(text: str) -> str:
+    """Prevent Rich from treating paths like ``[/Users/…/file | N lines]`` as tags."""
+    # Closing tags are ``[/name]``; absolute paths in tool output trip this.
+    return text.replace("[/", "\\[/")
+
+
+def plain_static(content: str = "", *, classes: str | None = None) -> Static:
+    """Static that does not parse Rich markup (safe for tool output / paths)."""
+    return Static(content, classes=classes, markup=False)
+
+
 def _pretty_value(value: Any, *, limit: int = 1200) -> str:
     if value is None:
         return ""
@@ -132,13 +143,14 @@ def history_to_chat_lines(messages: list[ModelMessage]) -> list[tuple[Role, str]
 
 def bubble_markdown(role: Role, text: str, *, headed: bool = True) -> str:
     """Markdown source for a chat bubble, including GFM emphasis."""
+    safe = escape_rich_markup(text)
     if role == "user":
-        return f"**You**\n\n{text}"
+        return f"**You**\n\n{safe}"
     if role == "assistant":
         if headed:
-            return f"**Claw**\n\n{text}"
-        return text
-    return text
+            return f"**Claw**\n\n{safe}"
+        return safe
+    return safe
 
 
 def conversation_plain(messages: list[ModelMessage]) -> str:
@@ -350,7 +362,7 @@ class ChatApp(App[None]):
         lines = history_to_chat_lines(history)
         if not lines:
             log.mount(
-                Static(
+                plain_static(
                     "Talk to the local harness. /new fresh chat · "
                     "/queue steer|followup|collect|interrupt · "
                     "/scratch yes wipes memory. Click ▶ tool rows to expand.",
@@ -373,7 +385,7 @@ class ChatApp(App[None]):
                 bodies.append(f"── {name} ──\n{body}" if body else f"── {name} ──")
             log.mount(
                 Collapsible(
-                    Static("\n\n".join(bodies) or "(no details)", classes="tool-body"),
+                    plain_static("\n\n".join(bodies) or "(no details)", classes="tool-body"),
                     title=group_tool_title(names, done=True),
                     collapsed=True,
                     classes="tool",
@@ -417,7 +429,7 @@ class ChatApp(App[None]):
         self._busy = True  # claim before await so overlapping polls skip
         log = self.query_one("#log", ChatLog)
         await log.mount(
-            Static(
+            plain_static(
                 f"scheduled · {job.name} · firing now ({job.id[:8]}…)",
                 classes="meta",
             )
@@ -427,7 +439,7 @@ class ChatApp(App[None]):
     def action_clear_log(self) -> None:
         log = self.query_one("#log", ChatLog)
         log.remove_children()
-        log.mount(Static("View cleared. Session history on disk is unchanged.", classes="meta"))
+        log.mount(plain_static("View cleared. Session history on disk is unchanged.", classes="meta"))
 
     def action_new_chat(self) -> None:
         if self._busy:
@@ -441,7 +453,7 @@ class ChatApp(App[None]):
         self._reset_turn_widgets()
         log = self.query_one("#log", ChatLog)
         log.remove_children()
-        log.mount(Static(note, classes="meta"))
+        log.mount(plain_static(note, classes="meta"))
         log.scroll_end(animate=False)
         self.sub_title = self._subtitle()
         self.notify(f"session {self.session_key}", timeout=2)
@@ -497,7 +509,7 @@ class ChatApp(App[None]):
             parts = text.split(maxsplit=1)
             if len(parts) == 1:
                 await log.mount(
-                    Static(
+                    plain_static(
                         f"queue mode: {self.queue_mode} "
                         f"(steer|followup|collect|interrupt)",
                         classes="meta",
@@ -507,17 +519,17 @@ class ChatApp(App[None]):
             try:
                 self.queue_mode = normalize_queue_mode(parts[1])
             except ValueError as exc:
-                await log.mount(Static(str(exc), classes="meta"))
+                await log.mount(plain_static(str(exc), classes="meta"))
                 return
             self.sub_title = self._subtitle()
             await log.mount(
-                Static(f"queue mode set to {self.queue_mode}", classes="meta")
+                plain_static(f"queue mode set to {self.queue_mode}", classes="meta")
             )
             return
         if cmd in {"/scratch", "/reset-all", "/reset"}:
             log = self.query_one("#log", ChatLog)
             await log.mount(
-                Static(
+                plain_static(
                     "This wipes all chats, MEMORY.md, and the agent workspace. "
                     "Type `/scratch yes` to confirm.",
                     classes="meta",
@@ -569,7 +581,7 @@ class ChatApp(App[None]):
         self._tool_done.discard(tool_call_id)
 
         if self._active_tool_group is None:
-            body = Static("", classes="tool-body")
+            body = plain_static("", classes="tool-body")
             card = Collapsible(
                 body,
                 title=group_tool_title([name], done=False),
@@ -605,7 +617,7 @@ class ChatApp(App[None]):
         if idx is None:
             # Result without a prior call — open a one-shot group.
             await self._finalize_assistant_stream()
-            body = Static("", classes="tool-body")
+            body = plain_static("", classes="tool-body")
             card = Collapsible(
                 body,
                 title=group_tool_title([name], done=True),
@@ -629,7 +641,7 @@ class ChatApp(App[None]):
         if scheduled_job_id:
             # Don't dump the internal scheduled prompt as a user bubble
             await log.mount(
-                Static("Claw waking for scheduled turn…", classes="meta")
+                plain_static("Claw waking for scheduled turn…", classes="meta")
             )
         else:
             await log.mount(Markdown(bubble_markdown("user", text), classes="user"))
@@ -660,7 +672,7 @@ class ChatApp(App[None]):
                     store.save(job)
             if snap.status != "ok":
                 await log.mount(
-                    Static(f"{snap.status}: {snap.error or 'unknown error'}", classes="meta")
+                    plain_static(f"{snap.status}: {snap.error or 'unknown error'}", classes="meta")
                 )
             elif not self._assistant_buf and snap.output:
                 stream = await self._ensure_assistant_stream()
@@ -673,7 +685,7 @@ class ChatApp(App[None]):
                     job.status = "error"
                     job.error = f"{type(exc).__name__}: {exc}"
                     store.save(job)
-            await log.mount(Static(f"error: {type(exc).__name__}: {exc}", classes="meta"))
+            await log.mount(plain_static(f"error: {type(exc).__name__}: {exc}", classes="meta"))
         finally:
             await self._finalize_assistant_stream()
             self._busy = False
@@ -690,7 +702,7 @@ class ChatApp(App[None]):
                 return
             self._assistant_buf += delta
             stream = await self._ensure_assistant_stream()
-            await stream.write(delta)
+            await stream.write(escape_rich_markup(delta))
             log.scroll_end(animate=False)
         elif ev.stream == "tool":
             name = str(ev.data.get("toolName") or "tool")
@@ -709,7 +721,7 @@ class ChatApp(App[None]):
                     result=ev.data.get("result"),
                 )
             else:
-                await log.mount(Static(f"tool {phase} {name}", classes="meta"))
+                await log.mount(plain_static(f"tool {phase} {name}", classes="meta"))
                 log.scroll_end(animate=False)
 
 

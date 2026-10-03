@@ -73,6 +73,15 @@ def test_history_keeps_tool_between_assistant_segments() -> None:
     assert lines[4] == ("assistant", "It's sunny and 70F.")
 
 
+def test_escape_rich_markup_paths() -> None:
+    from claw.tui import escape_rich_markup
+
+    raw = "[/Users/rishilokesh/personal/mhacks26/README.md | 198 lines]"
+    escaped = escape_rich_markup(raw)
+    assert escaped.startswith("\\[/")
+    assert "README.md" in escaped
+
+
 def test_format_tool_body_and_title() -> None:
     assert "⚙ web_search" == tool_title("web_search")
     assert "✓ web_search" == tool_title("web_search", done=True)
