@@ -12,7 +12,11 @@
       --line: #d8d4cc;
       --user: #e8e4dc;
       --bot: #fff;
+      --tool: #faf9f6;
+      --running: #8a6d1f;
+      --done: #2f6b4f;
       --accent: #1a1a1a;
+      --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -38,7 +42,7 @@
       font-weight: 650;
     }
     #status { font-size: 0.85rem; color: var(--muted); }
-    #status.ok { color: #2f6b4f; }
+    #status.ok { color: var(--done); }
     #status.bad { color: #9b2c2c; }
     #log {
       flex: 1;
@@ -59,6 +63,13 @@
     }
     .msg.user { align-self: flex-end; background: var(--user); }
     .msg.assistant { align-self: flex-start; background: var(--bot); }
+    .msg.assistant code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: #f0ede7;
+      padding: 0.05rem 0.25rem;
+      border-radius: 4px;
+    }
     .msg.meta {
       align-self: center;
       border: 0;
@@ -66,6 +77,54 @@
       color: var(--muted);
       font-size: 0.85rem;
       padding: 0.2rem;
+    }
+    .thinking {
+      align-self: flex-start;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0 0.2rem;
+    }
+    details.tools {
+      align-self: flex-start;
+      width: min(42rem, 100%);
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      background: var(--tool);
+    }
+    details.tools > summary {
+      cursor: pointer;
+      padding: 0.45rem 0.75rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--done);
+      list-style: none;
+      user-select: none;
+    }
+    details.tools > summary::-webkit-details-marker { display: none; }
+    details.tools > summary::before { content: "▸ "; color: var(--muted); }
+    details.tools[open] > summary::before { content: "▾ "; }
+    details.tools.running > summary { color: var(--running); }
+    .tool-entry { border-top: 1px solid var(--line); padding: 0.5rem 0.75rem; }
+    .tool-entry .name {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+    .tool-entry .label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0.35rem 0 0.15rem;
+    }
+    .tool-entry pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 0.78rem/1.35 var(--mono);
+      max-height: 18rem;
+      overflow: auto;
     }
     form {
       display: flex;
@@ -115,7 +174,8 @@
     let ws = null;
     let nextId = 1;
     let connectId = null;
-    let pending = null; // { agentId, waitId, runId, bubble, buf }
+    let historyId = null;
+    let pending = null; // { agentId, waitId, runId, early, turn }
 
     function setStatus(text, cls) {
       statusEl.textContent = text;
@@ -131,27 +191,192 @@
     }
 
     function renderText(el, text) {
-      // Escape HTML, then turn **bold** into <strong>
-      el.innerHTML = escapeHtml(text).replace(
-        /\*\*([^*]+)\*\*/g,
-        "<strong>$1</strong>"
-      );
+      el.innerHTML = escapeHtml(text)
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     }
 
-    function addMsg(role, text) {
+    function scrollToEnd() {
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function addMsg(role, text, before) {
       const el = document.createElement("div");
       el.className = `msg ${role}`;
       if (role === "assistant") renderText(el, text);
       else el.textContent = text;
-      log.appendChild(el);
-      log.scrollTop = log.scrollHeight;
+      log.insertBefore(el, before || null);
+      scrollToEnd();
       return el;
     }
+
+    function pretty(value) {
+      if (value === undefined || value === null || value === "") return "";
+      let text = value;
+      if (typeof value === "string") {
+        try { text = JSON.stringify(JSON.parse(value), null, 2); } catch { text = value; }
+      } else {
+        text = JSON.stringify(value, null, 2);
+      }
+      return text.length > 4000 ? text.slice(0, 4000) + "…" : text;
+    }
+
+    // ---- turn rendering (mirrors the TUI) ----
+    // Text and tools render in stream order. Consecutive tool calls share one
+    // collapsible group; assistant text after a tool starts a new bubble below it.
+
+    function newTurn(live) {
+      const turn = { textEl: null, textBuf: "", group: null, tools: new Map(), sawText: false };
+      if (live) {
+        turn.thinking = document.createElement("div");
+        turn.thinking.className = "thinking";
+        turn.thinking.textContent = "thinking…";
+        log.appendChild(turn.thinking);
+        scrollToEnd();
+      }
+      return turn;
+    }
+
+    function endTurn(turn) {
+      if (turn.thinking) turn.thinking.remove();
+      turn.thinking = null;
+      for (const entry of turn.tools.values()) {
+        if (!entry.done) { entry.done = true; updateGroup(entry.group); }
+      }
+    }
+
+    function appendText(turn, delta) {
+      if (!turn.textEl) {
+        turn.textEl = addMsg("assistant", "", turn.thinking);
+        turn.textBuf = "";
+        turn.group = null;
+      }
+      turn.textBuf += delta;
+      turn.sawText = true;
+      renderText(turn.textEl, turn.textBuf);
+      scrollToEnd();
+    }
+
+    function groupTitle(entries) {
+      const done = entries.every((e) => e.done);
+      const mark = done ? "✓" : "⚙";
+      const names = entries.map((e) => e.name);
+      const counts = new Map();
+      for (const n of names) counts.set(n, (counts.get(n) || 0) + 1);
+      let label;
+      if (counts.size === 1) {
+        const [name, n] = counts.entries().next().value;
+        label = n > 1 ? `${name} ×${n}` : name;
+      } else if (names.length <= 3) {
+        label = names.join(", ");
+      } else {
+        label = `${names.length} tools`;
+      }
+      return { text: `${mark} ${label}`, done };
+    }
+
+    function updateGroup(group) {
+      const { text, done } = groupTitle(group.entries);
+      group.summary.textContent = text;
+      group.details.classList.toggle("running", !done);
+    }
+
+    function renderEntry(entry) {
+      const el = entry.el;
+      el.replaceChildren();
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = `${entry.done ? "✓" : "⚙"} ${entry.name}`;
+      el.appendChild(name);
+      for (const [label, value] of [["args", entry.args], ["result", entry.result]]) {
+        const body = pretty(value);
+        if (!body) continue;
+        const l = document.createElement("div");
+        l.className = "label";
+        l.textContent = label;
+        const pre = document.createElement("pre");
+        pre.textContent = body;
+        el.append(l, pre);
+      }
+    }
+
+    function addTool(turn, { id, name, args, result, done }) {
+      if (!turn.group) {
+        const details = document.createElement("details");
+        details.className = "tools";
+        const summary = document.createElement("summary");
+        details.appendChild(summary);
+        log.insertBefore(details, turn.thinking || null);
+        turn.group = { details, summary, entries: [] };
+        turn.textEl = null;
+      }
+      const el = document.createElement("div");
+      el.className = "tool-entry";
+      turn.group.details.appendChild(el);
+      const entry = { name: name || "tool", args, result, done: !!done, el, group: turn.group };
+      turn.group.entries.push(entry);
+      if (id) turn.tools.set(id, entry);
+      renderEntry(entry);
+      updateGroup(turn.group);
+      scrollToEnd();
+    }
+
+    function finishTool(turn, { id, name, result }) {
+      const entry = id && turn.tools.get(id);
+      if (!entry) {
+        addTool(turn, { id, name, result, done: true });
+        return;
+      }
+      entry.result = result;
+      entry.done = true;
+      renderEntry(entry);
+      updateGroup(entry.group);
+    }
+
+    function onAgentEvent(turn, p) {
+      const data = p.data || {};
+      if (p.stream === "assistant" && data.delta) {
+        appendText(turn, data.delta);
+      } else if (p.stream === "tool") {
+        const info = { id: data.toolCallId, name: data.toolName, args: data.args, result: data.result };
+        if (data.phase === "call") addTool(turn, info);
+        else if (data.phase === "result") finishTool(turn, info);
+      }
+    }
+
+    function renderHistory(entries) {
+      log.replaceChildren();
+      let turn = null;
+      for (const e of entries) {
+        if (e.kind === "user") {
+          addMsg("user", e.text);
+          turn = null;
+          continue;
+        }
+        turn = turn || newTurn(false);
+        if (e.kind === "assistant") {
+          turn.textEl = null; // each persisted text part is its own bubble
+          appendText(turn, e.text);
+        } else if (e.kind === "tool") {
+          addTool(turn, { name: e.name, args: e.args, result: e.result, done: true });
+        }
+      }
+      scrollToEnd();
+    }
+
+    // ---- gateway protocol ----
 
     function req(method, params) {
       const id = String(nextId++);
       ws.send(JSON.stringify({ type: "req", id, method, params: params || {} }));
       return id;
+    }
+
+    function finishPending() {
+      if (pending) endTurn(pending.turn);
+      pending = null;
+      sendBtn.disabled = false;
+      input.focus();
     }
 
     function connect() {
@@ -179,56 +404,63 @@
           }
           setStatus("connected", "ok");
           sendBtn.disabled = false;
+          if (!pending) historyId = req("chat.history", { sessionKey });
+          return;
+        }
+
+        if (frame.type === "res" && frame.id === historyId) {
+          if (frame.ok && !pending) renderHistory(frame.payload?.entries || []);
           return;
         }
 
         if (pending && frame.type === "res" && frame.id === pending.agentId) {
           if (!frame.ok) {
-            renderText(pending.bubble, frame.error?.message || "rejected");
-            pending = null;
-            sendBtn.disabled = false;
+            addMsg("meta", frame.error?.message || "rejected", pending.turn.thinking);
+            finishPending();
             return;
           }
           pending.runId = frame.payload?.runId;
           pending.waitId = req("agent.wait", { runId: pending.runId });
+          for (const p of pending.early) {
+            if (p.runId === pending.runId) onAgentEvent(pending.turn, p);
+          }
+          pending.early = [];
           return;
         }
 
         if (pending && frame.type === "event" && frame.event === "agent") {
           const p = frame.payload || {};
-          if (pending.runId && p.runId && p.runId !== pending.runId) return;
-          if (p.stream === "assistant") {
-            const delta = (p.data && p.data.delta) || "";
-            pending.buf += delta;
-            renderText(pending.bubble, pending.buf || "…");
-            log.scrollTop = log.scrollHeight;
-          }
+          // Events can beat the agent response that carries our runId; hold them until then.
+          if (!pending.runId) pending.early.push(p);
+          else if (p.runId === pending.runId) onAgentEvent(pending.turn, p);
           return;
         }
 
         if (pending && frame.type === "res" && frame.id === pending.waitId) {
+          const turn = pending.turn;
           if (!frame.ok) {
-            renderText(pending.bubble, frame.error?.message || "wait failed");
+            addMsg("meta", frame.error?.message || "wait failed", turn.thinking);
           } else {
             const out = frame.payload?.output;
-            if (!pending.buf && out) renderText(pending.bubble, out);
+            if (!turn.sawText && out) appendText(turn, out);
             if (frame.payload?.status && frame.payload.status !== "ok") {
-              renderText(
-                pending.bubble,
-                `${frame.payload.status}: ${frame.payload.error || ""}`.trim()
+              addMsg(
+                "meta",
+                `${frame.payload.status}: ${frame.payload.error || ""}`.trim(),
+                turn.thinking
               );
+            } else if (!turn.sawText && !turn.tools.size) {
+              addMsg("meta", "(empty reply)", turn.thinking);
             }
-            if (!pending.bubble.textContent) renderText(pending.bubble, "(empty)");
           }
-          pending = null;
-          sendBtn.disabled = false;
-          input.focus();
+          finishPending();
         }
       };
 
       ws.onclose = () => {
         setStatus("disconnected — retrying…", "bad");
         sendBtn.disabled = true;
+        if (pending) endTurn(pending.turn);
         pending = null;
         setTimeout(connect, 1500);
       };
@@ -245,14 +477,13 @@
 
       addMsg("user", text);
       input.value = "";
-      const bubble = addMsg("assistant", "…");
       sendBtn.disabled = true;
       const agentId = req("agent", {
         message: text,
         sessionKey,
         idempotencyKey: crypto.randomUUID(),
       });
-      pending = { agentId, waitId: null, runId: null, bubble, buf: "" };
+      pending = { agentId, waitId: null, runId: null, early: [], turn: newTurn(true) };
     });
 
     connect();

@@ -23,6 +23,7 @@ from claw.channels.voice import (
     STREAM_TTS_SAMPLE_RATE,
     RealtimeTranscriber,
     StreamingSynthesizer,
+    WaitFiller,
     pcm16_to_wav,
 )
 from claw.config import Settings, get_settings
@@ -360,6 +361,9 @@ def create_app(
                             params, runner=app.state.runner
                         )
                         await conn.send(protocol.res_ok(req_id, payload))
+                    elif method == "chat.history":
+                        payload = methods.handle_chat_history(params, runner=app.state.runner)
+                        await conn.send(protocol.res_ok(req_id, payload))
                     elif method == "agent.wait":
                         payload = await methods.handle_agent_wait(
                             params, runner=app.state.runner
@@ -497,6 +501,23 @@ def create_app(
                 tts = speech.streaming_tts(on_audio)
                 tts.start()
                 speaking["tts"] = tts
+                filler = WaitFiller()
+                stop_filler = asyncio.Event()
+
+                async def filler_watch() -> None:
+                    while not stop_filler.is_set() and not tts.cancelled:
+                        phrase = filler.due()
+                        if phrase:
+                            await send_json(
+                                {"type": "filler", "id": utt_id, "text": phrase.strip()}
+                            )
+                            tts.feed(phrase)
+                        try:
+                            await asyncio.wait_for(stop_filler.wait(), timeout=0.25)
+                        except asyncio.TimeoutError:
+                            pass
+
+                filler_task = asyncio.create_task(filler_watch())
                 try:
                     _, accepted = start_inbound(
                         runner,
@@ -510,14 +531,26 @@ def create_app(
                     )
 
                     async def on_event(event: AgentEvent) -> None:
-                        delta = event.data.get("delta")
-                        if (
-                            event.run_id == accepted.run_id
-                            and event.stream == "assistant"
-                            and isinstance(delta, str)
-                        ):
+                        if event.run_id != accepted.run_id:
+                            return
+                        data = event.data
+                        delta = data.get("delta")
+                        if event.stream == "assistant" and isinstance(delta, str):
+                            filler.note_speech()
                             await send_json({"type": "reply_delta", "id": utt_id, "delta": delta})
                             tts.feed(delta)
+                        elif event.stream == "tool":
+                            await send_json(
+                                {
+                                    "type": "tool",
+                                    "id": utt_id,
+                                    "phase": data.get("phase"),
+                                    "name": data.get("toolName"),
+                                    "toolCallId": data.get("toolCallId"),
+                                    "args": data.get("args"),
+                                    "result": data.get("result"),
+                                }
+                            )
 
                     unsubscribe = runner.subscribe(on_event)
                     try:
@@ -541,6 +574,12 @@ def create_app(
                 except (WebSocketDisconnect, RuntimeError):
                     pass
                 finally:
+                    stop_filler.set()
+                    filler_task.cancel()
+                    try:
+                        await filler_task
+                    except asyncio.CancelledError:
+                        pass
                     await tts.close()
                     if speaking["tts"] is tts:
                         speaking["tts"] = None

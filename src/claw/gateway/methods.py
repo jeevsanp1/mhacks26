@@ -5,8 +5,18 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
+
 from claw.channels.dispatch import dispatch_inbound, start_inbound
 from claw.config import PROTOCOL_VERSION, Settings
+from claw.events import truncate_payload
 from claw.gateway.protocol import ADVERTISED_EVENTS, ADVERTISED_METHODS
 from claw.routing import parse_inbound_params
 from claw.runner import AgentRunner
@@ -82,6 +92,41 @@ def handle_agent(
         queue_mode=str(queue_mode) if queue_mode else None,
     )
     return accepted.to_payload()
+
+
+def handle_chat_history(params: dict[str, Any], *, runner: AgentRunner) -> dict[str, Any]:
+    """Session transcript as ordered user/assistant/tool entries (tool calls paired with results)."""
+    session_key = str(params.get("sessionKey") or params.get("session") or "main")
+    entries: list[dict[str, Any]] = []
+    tools_by_id: dict[str, dict[str, Any]] = {}
+    for msg in runner.store.load(session_key):
+        if isinstance(msg, ModelRequest):
+            for part in msg.parts:
+                if isinstance(part, UserPromptPart) and isinstance(part.content, str):
+                    if part.content.strip():
+                        entries.append({"kind": "user", "text": part.content})
+                elif isinstance(part, ToolReturnPart):
+                    entry = tools_by_id.get(part.tool_call_id)
+                    if entry is None:
+                        entry = {"kind": "tool", "name": part.tool_name or "tool"}
+                        entries.append(entry)
+                    entry["result"] = truncate_payload(part.content)
+                    entry["done"] = True
+        elif isinstance(msg, ModelResponse):
+            for part in msg.parts:
+                if isinstance(part, TextPart) and part.content:
+                    entries.append({"kind": "assistant", "text": part.content})
+                elif isinstance(part, ToolCallPart):
+                    entry = {
+                        "kind": "tool",
+                        "name": part.tool_name or "tool",
+                        "toolCallId": part.tool_call_id,
+                        "args": part.args,
+                        "done": False,
+                    }
+                    tools_by_id[part.tool_call_id] = entry
+                    entries.append(entry)
+    return {"sessionKey": session_key, "entries": entries}
 
 
 async def handle_agent_wait(

@@ -140,3 +140,6 @@ def _truncate(value: Any, limit: int = 4000) -> Any:
     if len(text) > limit:
         return text[:limit] + "…"
     return text
+
+
+truncate_payload = _truncate

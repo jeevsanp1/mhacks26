@@ -8,7 +8,12 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from claw.channels.voice import ElevenLabsSpeech, ElevenLabsSpeechError, StreamingSynthesizer
+from claw.channels.voice import (
+    ElevenLabsSpeech,
+    ElevenLabsSpeechError,
+    StreamingSynthesizer,
+    WaitFiller,
+)
 from claw.config import Settings
 from claw.gateway.server import create_app
 from claw.runner import AgentRunner
@@ -33,6 +38,30 @@ def receive_reply_audio(ws: object, utt_id: object) -> bytes:
     audio = ws.receive_bytes()  # type: ignore[attr-defined]
     assert ws.receive_json() == {"type": "audio_end", "id": utt_id}  # type: ignore[attr-defined]
     return audio
+
+
+def test_wait_filler_fires_after_silence_and_resets_on_speech() -> None:
+    now = {"t": 0.0}
+    filler = WaitFiller(
+        first_after_s=2.0,
+        every_s=5.0,
+        max_per_turn=3,
+        phrases=("Give me a second. ", "One moment. "),
+        clock=lambda: now["t"],
+    )
+    assert filler.due() is None
+    now["t"] = 2.0
+    assert filler.due() == "Give me a second. "
+    assert filler.due() is None  # just spoke; clock hasn't advanced
+    now["t"] = 7.0
+    assert filler.due() == "One moment. "
+    filler.note_speech()
+    now["t"] = 9.0
+    assert filler.due() is None  # recent speech resets the quiet timer
+    now["t"] = 14.0
+    assert filler.due() == "Give me a second. "
+    now["t"] = 20.0
+    assert filler.due() is None  # max_per_turn reached
 
 
 def test_streaming_synthesizer_sends_whole_words_without_markdown() -> None:
@@ -78,7 +107,7 @@ def test_voice_websocket_routes_through_real_agent_pipeline(settings: Settings) 
                 assert final == {"type": "transcript_final", "id": None, "text": "what time is it"}
 
                 turn = ws.receive_json()
-                while turn["type"] == "reply_delta":
+                while turn["type"] in ("reply_delta", "tool", "filler"):
                     turn = ws.receive_json()
                 assert turn["type"] == "turn"
                 assert turn["transcript"] == "what time is it"
@@ -111,7 +140,7 @@ def test_voice_websocket_streaming_falls_back_to_batch_stt(settings: Settings) -
                 final = ws.receive_json()
                 assert final == {"type": "transcript_final", "id": 7, "text": "hello there"}
                 turn = ws.receive_json()
-                while turn["type"] == "reply_delta":
+                while turn["type"] in ("reply_delta", "tool", "filler"):
                     assert turn["id"] == 7
                     turn = ws.receive_json()
                 assert turn["type"] == "turn" and turn["id"] == 7

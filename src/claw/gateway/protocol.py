@@ -12,6 +12,7 @@ ADVERTISED_METHODS = [
     "health",
     "agent",
     "agent.wait",
+    "chat.history",
     "channel.inbound",
     "cron.add",
     "cron.list",

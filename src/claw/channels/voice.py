@@ -13,8 +13,9 @@ import base64
 import io
 import json
 import re
+import time
 import wave
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from urllib.parse import urlencode
 
 import httpx
@@ -27,9 +28,62 @@ TTS_URL_TEMPLATE = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 REALTIME_STT_URL = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
 REALTIME_STT_MODEL = "scribe_v2_realtime"
 PCM_SAMPLE_RATE = 16_000
+LANGUAGE_CODE = "en"  # English-only: no auto-detection for STT, no accent drift in TTS
 STREAM_TTS_URL_TEMPLATE = "wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input"
 STREAM_TTS_SAMPLE_RATE = 24_000
 _MARKDOWN_NOISE = re.compile(r"[*`#]+")
+
+# Spoken while the agent is quiet (tooling / slow first token). Trailing space
+# keeps ElevenLabs stream-input happy (it wants chunks to end on a word boundary).
+VOICE_FILLERS: tuple[str, ...] = (
+    "Give me a second. ",
+    "One moment. ",
+    "Hang on. ",
+    "Just a sec. ",
+    "Still working on that. ",
+)
+FILLER_FIRST_AFTER_S = 2.0
+FILLER_EVERY_S = 7.0
+FILLER_MAX_PER_TURN = 3
+
+
+class WaitFiller:
+    """Decide when to speak a short filler during a long silent stretch."""
+
+    def __init__(
+        self,
+        *,
+        first_after_s: float = FILLER_FIRST_AFTER_S,
+        every_s: float = FILLER_EVERY_S,
+        max_per_turn: int = FILLER_MAX_PER_TURN,
+        phrases: Sequence[str] = VOICE_FILLERS,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._first_after_s = first_after_s
+        self._every_s = every_s
+        self._max = max_per_turn
+        self._phrases = tuple(phrases) or VOICE_FILLERS
+        self._clock = clock
+        self._last_activity = self._clock()
+        self._said = 0
+        self._idx = 0
+
+    def note_speech(self) -> None:
+        """Call when the model produces audible reply text (not tools)."""
+        self._last_activity = self._clock()
+
+    def due(self) -> str | None:
+        if self._said >= self._max:
+            return None
+        quiet = self._clock() - self._last_activity
+        need = self._first_after_s if self._said == 0 else self._every_s
+        if quiet < need:
+            return None
+        phrase = self._phrases[self._idx % len(self._phrases)]
+        self._idx += 1
+        self._said += 1
+        self._last_activity = self._clock()
+        return phrase
 
 
 def pcm16_to_wav(pcm: bytes, sample_rate: int = PCM_SAMPLE_RATE) -> bytes:
@@ -71,7 +125,7 @@ class ElevenLabsSpeech:
             resp = await client.post(
                 STT_URL,
                 headers={"xi-api-key": self._api_key},
-                data={"model_id": self._stt_model},
+                data={"model_id": self._stt_model, "language_code": LANGUAGE_CODE},
                 files={"file": (filename, audio_bytes, content_type)},
             )
         if resp.status_code != 200:
@@ -88,7 +142,7 @@ class ElevenLabsSpeech:
             resp = await client.post(
                 url,
                 headers={"xi-api-key": self._api_key, "Content-Type": "application/json"},
-                json={"text": text, "model_id": self._tts_model},
+                json={"text": text, "model_id": self._tts_model, "language_code": LANGUAGE_CODE},
             )
         if resp.status_code != 200:
             raise ElevenLabsSpeechError(f"TTS failed: {resp.status_code} {resp.text}")
@@ -159,6 +213,7 @@ class RealtimeTranscriber:
                 "model_id": REALTIME_STT_MODEL,
                 "audio_format": f"pcm_{PCM_SAMPLE_RATE}",
                 "commit_strategy": "manual",
+                "language_code": LANGUAGE_CODE,
             }
         )
         last_exc: Exception | None = None
@@ -309,6 +364,7 @@ class StreamingSynthesizer:
                 "model_id": self._model_id,
                 "output_format": f"pcm_{STREAM_TTS_SAMPLE_RATE}",
                 "inactivity_timeout": 60,
+                "language_code": LANGUAGE_CODE,
             }
         )
         url = f"{STREAM_TTS_URL_TEMPLATE.format(voice_id=self._voice_id)}?{query}"

@@ -57,7 +57,57 @@
     }
     .msg.user { align-self: flex-end; background: var(--user); }
     .msg.assistant { align-self: flex-start; background: var(--bot); }
+    .msg.assistant code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+      background: rgba(0, 0, 0, 0.06);
+      padding: 0.1em 0.3em;
+      border-radius: 4px;
+    }
     .msg.user.pending { color: var(--muted); }
+    .turn { display: flex; flex-direction: column; gap: 0.65rem; }
+    details.tools {
+      align-self: flex-start;
+      width: min(42rem, 100%);
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      background: #faf9f6;
+    }
+    details.tools > summary {
+      cursor: pointer;
+      padding: 0.45rem 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85rem;
+      color: #2f6b4f;
+      list-style: none;
+      user-select: none;
+    }
+    details.tools > summary::-webkit-details-marker { display: none; }
+    details.tools > summary::before { content: "▸ "; color: var(--muted); }
+    details.tools[open] > summary::before { content: "▾ "; }
+    details.tools.running > summary { color: #8a6d1f; }
+    .tool-entry { border-top: 1px solid var(--line); padding: 0.5rem 0.75rem; }
+    .tool-entry .name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+    .tool-entry .label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0.35rem 0 0.15rem;
+    }
+    .tool-entry pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 0.78rem/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+      max-height: 18rem;
+      overflow: auto;
+    }
     .msg.meta {
       align-self: center;
       border: 0;
@@ -132,7 +182,7 @@
     let recog = null;
     const browserLiveIds = new Set();
     const userBubbles = new Map();
-    const botBubbles = new Map();
+    const turns = new Map(); // utterance id -> reply turn state
     // Reply audio arrives as audio_start{id, format}, binary chunks, audio_end.
     // Replies to utterances older than mutedBelow were barged in on and are dropped.
     let mutedBelow = 0;
@@ -208,10 +258,25 @@
       statusEl.className = cls || "";
     }
 
+    function escapeHtml(s) {
+      return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderText(el, text) {
+      el.innerHTML = escapeHtml(text)
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    }
+
     function addMsg(role, text) {
       const el = document.createElement("div");
       el.className = `msg ${role}`;
-      el.textContent = text;
+      if (role === "assistant") renderText(el, text);
+      else el.textContent = text;
       log.appendChild(el);
       log.scrollTop = log.scrollHeight;
       return el;
@@ -252,15 +317,22 @@
           if (!browserLiveIds.has(id)) setUserText(id, frame.text, true);
         } else if (frame.type === "transcript_final") {
           setUserText(id, frame.text, false);
+        } else if (frame.type === "filler") {
+          addMsg("meta", frame.text || "…");
+          hint.textContent = frame.text || "Working…";
         } else if (frame.type === "reply_delta") {
-          const bot = botBubble(id);
-          bot.textContent += frame.delta;
-          log.scrollTop = log.scrollHeight;
+          appendText(getTurn(id), frame.delta);
           hint.textContent = IDLE_HINT;
+        } else if (frame.type === "tool") {
+          const turn = getTurn(id);
+          const info = { id: frame.toolCallId, name: frame.name, args: frame.args, result: frame.result };
+          if (frame.phase === "call") addTool(turn, info);
+          else if (frame.phase === "result") finishTool(turn, info);
         } else if (frame.type === "turn") {
           setUserText(id, frame.transcript, false);
-          botBubble(id).textContent = frame.reply;
-          log.scrollTop = log.scrollHeight;
+          const turn = getTurn(id);
+          if (!turn.sawText) appendText(turn, frame.reply);
+          endTurn(turn);
           hint.textContent = IDLE_HINT;
         } else if (frame.type === "error") {
           const bubble = userBubbles.get(id);
@@ -294,13 +366,125 @@
       log.scrollTop = log.scrollHeight;
     }
 
-    function botBubble(id) {
-      let bubble = botBubbles.get(id);
-      if (!bubble) {
-        bubble = addMsg("assistant", "");
-        botBubbles.set(id, bubble);
+    // ---- reply rendering (mirrors the TUI / chat page) ----
+    // Each utterance's reply lives in a .turn box right after its user bubble.
+    // Consecutive tool calls share one collapsible group; text after a tool
+    // starts a new bubble below it.
+
+    function getTurn(id) {
+      let turn = turns.get(id);
+      if (!turn) {
+        const box = document.createElement("div");
+        box.className = "turn";
+        const anchor = userBubbles.get(id);
+        if (anchor) anchor.after(box);
+        else log.appendChild(box);
+        turn = { box, textEl: null, textBuf: "", group: null, tools: new Map(), sawText: false };
+        turns.set(id, turn);
       }
-      return bubble;
+      return turn;
+    }
+
+    function appendText(turn, delta) {
+      if (!turn.textEl) {
+        turn.textEl = document.createElement("div");
+        turn.textEl.className = "msg assistant";
+        turn.box.appendChild(turn.textEl);
+        turn.textBuf = "";
+        turn.group = null;
+      }
+      turn.textBuf += delta;
+      turn.sawText = true;
+      renderText(turn.textEl, turn.textBuf);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function pretty(value) {
+      if (value === undefined || value === null || value === "") return "";
+      let text = value;
+      if (typeof value === "string") {
+        try { text = JSON.stringify(JSON.parse(value), null, 2); } catch { text = value; }
+      } else {
+        text = JSON.stringify(value, null, 2);
+      }
+      return text.length > 4000 ? text.slice(0, 4000) + "…" : text;
+    }
+
+    function updateGroup(group) {
+      const entries = group.entries;
+      const done = entries.every((e) => e.done);
+      const names = entries.map((e) => e.name);
+      const counts = new Map();
+      for (const n of names) counts.set(n, (counts.get(n) || 0) + 1);
+      let label;
+      if (counts.size === 1) {
+        const [name, n] = counts.entries().next().value;
+        label = n > 1 ? `${name} ×${n}` : name;
+      } else if (names.length <= 3) {
+        label = names.join(", ");
+      } else {
+        label = `${names.length} tools`;
+      }
+      group.summary.textContent = `${done ? "✓" : "⚙"} ${label}`;
+      group.details.classList.toggle("running", !done);
+    }
+
+    function renderEntry(entry) {
+      const el = entry.el;
+      el.replaceChildren();
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = `${entry.done ? "✓" : "⚙"} ${entry.name}`;
+      el.appendChild(name);
+      for (const [label, value] of [["args", entry.args], ["result", entry.result]]) {
+        const body = pretty(value);
+        if (!body) continue;
+        const l = document.createElement("div");
+        l.className = "label";
+        l.textContent = label;
+        const pre = document.createElement("pre");
+        pre.textContent = body;
+        el.append(l, pre);
+      }
+    }
+
+    function addTool(turn, { id, name, args, result, done }) {
+      if (!turn.group) {
+        const details = document.createElement("details");
+        details.className = "tools";
+        const summary = document.createElement("summary");
+        details.appendChild(summary);
+        turn.box.appendChild(details);
+        turn.group = { details, summary, entries: [] };
+        turn.textEl = null;
+      }
+      const el = document.createElement("div");
+      el.className = "tool-entry";
+      turn.group.details.appendChild(el);
+      const entry = { name: name || "tool", args, result, done: !!done, el, group: turn.group };
+      turn.group.entries.push(entry);
+      if (id) turn.tools.set(id, entry);
+      renderEntry(entry);
+      updateGroup(turn.group);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function finishTool(turn, { id, name, result }) {
+      const entry = id && turn.tools.get(id);
+      if (!entry) {
+        addTool(turn, { id, name, result, done: true });
+        return;
+      }
+      entry.result = result;
+      entry.done = true;
+      renderEntry(entry);
+      updateGroup(entry.group);
+    }
+
+    function endTurn(turn) {
+      for (const entry of turn.tools.values()) {
+        if (!entry.done) { entry.done = true; renderEntry(entry); updateGroup(entry.group); }
+      }
     }
 
     const WORKLET_SRC = `
@@ -377,7 +561,7 @@
         recog = new BrowserSR();
         recog.continuous = true;
         recog.interimResults = true;
-        recog.lang = navigator.language || "en-US";
+        recog.lang = "en-US";
         recog.onresult = (e) => {
           let text = "";
           for (const r of e.results) text += r[0].transcript;

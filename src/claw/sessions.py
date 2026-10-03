@@ -3,18 +3,100 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import re
 import uuid
 from datetime import datetime
 from pathlib import Path
 
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
+from pydantic_ai.messages import (
+    BinaryContent,
+    ModelMessage,
+    ModelMessagesTypeAdapter,
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
 
 from claw.config import Settings
 
 
 # Allow OpenClaw-style colons in logical session keys (agent:main:main).
 _SAFE_KEY = re.compile(r"[^a-zA-Z0-9._@+:-]+")
+
+
+def _is_image_binary(value: object) -> bool:
+    return isinstance(value, BinaryContent) and str(
+        getattr(value, "media_type", "") or ""
+    ).startswith("image/")
+
+
+def _discard_label(value: BinaryContent) -> str:
+    return (
+        f"[screenshot discarded ({value.media_type}, {len(value.data)} bytes)]"
+    )
+
+
+def _strip_content(content: object) -> tuple[object | None, bool]:
+    """Remove image binaries from a part's content.
+
+    Returns (new_content, changed). new_content is None when the whole part
+    should be dropped (it only carried a discarded screenshot).
+    """
+    if _is_image_binary(content):
+        assert isinstance(content, BinaryContent)
+        return None, True
+    if not isinstance(content, list):
+        return content, False
+
+    cleaned: list[object] = []
+    changed = False
+    for item in content:
+        if _is_image_binary(item):
+            changed = True
+            continue
+        cleaned.append(item)
+
+    if not changed:
+        return content, False
+    if not cleaned:
+        return None, True
+    if len(cleaned) == 1 and isinstance(cleaned[0], str):
+        return cleaned[0], True
+    return cleaned, True
+
+
+def strip_screenshots(messages: list[ModelMessage]) -> list[ModelMessage]:
+    """Drop computer-use screenshots from persisted history.
+
+    Screenshots stay available to the model during the live turn via tool
+    returns; once the turn is saved they only bloat the next request.
+    """
+    out: list[ModelMessage] = []
+    for msg in messages:
+        if not isinstance(msg, ModelRequest):
+            out.append(msg)
+            continue
+        new_parts: list[object] = []
+        changed = False
+        for part in msg.parts:
+            if isinstance(part, (UserPromptPart, ToolReturnPart)):
+                new_content, part_changed = _strip_content(part.content)
+                if part_changed:
+                    changed = True
+                    if new_content is None:
+                        continue
+                    new_parts.append(dataclasses.replace(part, content=new_content))
+                else:
+                    new_parts.append(part)
+            else:
+                new_parts.append(part)
+        if not changed:
+            out.append(msg)
+        elif new_parts:
+            out.append(dataclasses.replace(msg, parts=tuple(new_parts)))
+        # else: request was only screenshots — drop the whole message
+    return out
 
 
 def sanitize_session_key(session_key: str) -> str:
@@ -110,19 +192,33 @@ class SessionStore:
         raw = path.read_bytes()
         if not raw.strip():
             return []
-        return ModelMessagesTypeAdapter.validate_json(raw)
+        messages = ModelMessagesTypeAdapter.validate_json(raw)
+        cleaned = strip_screenshots(messages)
+        # Lazily rewrite bloated transcripts (e.g. leftover computer-use PNGs).
+        changed = len(cleaned) != len(messages) or any(
+            a is not b for a, b in zip(cleaned, messages, strict=False)
+        )
+        if changed:
+            self.save(session_key, cleaned)
+        return cleaned
 
     def save(self, session_key: str, messages: list[ModelMessage]) -> None:
         path = self.path_for(session_key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = ModelMessagesTypeAdapter.dump_json(messages, indent=2)
+        cleaned = strip_screenshots(messages)
+        data = ModelMessagesTypeAdapter.dump_json(cleaned, indent=2)
         path.write_bytes(data)
 
     def append(self, session_key: str, new_messages: list[ModelMessage]) -> list[ModelMessage]:
-        history = self.load(session_key)
+        # Load without the rewrite side-effect path doubling work: read raw, merge, save strips.
+        path = self.path_for(session_key)
+        if path.exists() and path.read_bytes().strip():
+            history = list(ModelMessagesTypeAdapter.validate_json(path.read_bytes()))
+        else:
+            history = []
         history.extend(new_messages)
         self.save(session_key, history)
-        return history
+        return strip_screenshots(history)
 
     def clear(self, session_key: str) -> bool:
         """Delete one session transcript. Returns True if a file was removed."""
