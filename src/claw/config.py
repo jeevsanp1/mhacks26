@@ -54,6 +54,7 @@ class Settings:
     elevenlabs_voice_id: str = DEFAULT_ELEVENLABS_VOICE_ID
     elevenlabs_stt_model: str = DEFAULT_ELEVENLABS_STT_MODEL
     elevenlabs_tts_model: str = DEFAULT_ELEVENLABS_TTS_MODEL
+    vapi_llm_secret: str | None = None
 
     @property
     def sessions_dir(self) -> Path:
@@ -150,6 +151,7 @@ def get_settings() -> Settings:
         ),
         computer_use=computer_use,
         elevenlabs_api_key=os.getenv("ELEVENLABS_API_KEY", "").strip() or None,
+        vapi_llm_secret=os.getenv("VAPI_LLM_SECRET", "").strip() or None,
         elevenlabs_voice_id=(
             os.getenv("ELEVENLABS_VOICE_ID", DEFAULT_ELEVENLABS_VOICE_ID).strip()
             or DEFAULT_ELEVENLABS_VOICE_ID

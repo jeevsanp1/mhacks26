@@ -7,7 +7,9 @@
     "dev": "tsx watch src/server/index.ts",
     "start": "tsx src/server/index.ts",
     "build": "tsc",
-    "create-agent": "tsx src/agent/createAgent.ts"
+    "create-agent": "tsx src/agent/createAgent.ts",
+    "create-vapi-assistant": "tsx src/agent/createVapiAssistant.ts",
+    "import-phone": "tsx src/agent/importPhoneNumber.ts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.70.0",

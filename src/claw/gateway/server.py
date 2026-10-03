@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
+import json
+import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from starlette.websockets import WebSocketState
 
 from claw.channels.dispatch import start_inbound
@@ -44,6 +47,23 @@ class Connection:
             return
         async with self._send_lock:
             await self.ws.send_text(protocol.dumps(frame))
+
+
+def _message_text(content: Any) -> str:
+    """OpenAI message content is a string or a list of {type: text, text} parts."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(
+            p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"
+        )
+    return ""
+
+
+VAPI_FILLER_FIRST = "One moment, I'm on it. "
+VAPI_FILLER_AGAIN = "Still working on it. "
+VAPI_FILLER_FIRST_S = 3.0
+VAPI_FILLER_REPEAT_S = 12.0
 
 
 def create_app(
@@ -135,6 +155,132 @@ def create_app(
                 body, runner=app.state.runner
             )
         return methods.handle_channel_inbound(body, runner=app.state.runner)
+
+    @app.post("/vapi/{secret}/chat/completions")
+    async def vapi_chat_completions(secret: str, body: dict[str, Any]) -> Any:
+        """Vapi "custom LLM" endpoint: a phone call whose brain is the claw agent.
+
+        Vapi owns telephony, STT and TTS; each caller turn arrives as an
+        OpenAI-style chat completion request. Only the latest user message is
+        used — claw keeps its own session history/memory — and the reply is
+        streamed back as OpenAI chat.completion.chunk SSE. The secret is in the
+        path because Vapi appends /chat/completions to the configured URL.
+        """
+        expected = app.state.settings.vapi_llm_secret
+        if not expected or not hmac.compare_digest(secret, expected):
+            raise HTTPException(status_code=404)
+
+        text = next(
+            (
+                _message_text(m.get("content"))
+                for m in reversed(body.get("messages") or [])
+                if m.get("role") == "user"
+            ),
+            "",
+        )
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="no user message")
+
+        call = body.get("call") or {}
+        caller = (call.get("customer") or {}).get("number") or call.get("id") or "vapi-call"
+        runner: AgentRunner = app.state.runner
+        _, accepted = start_inbound(
+            runner,
+            parse_inbound_params(
+                {"channel": "voice", "text": text, "peer": {"kind": "direct", "id": str(caller)}}
+            ),
+        )
+
+        completion_id = f"chatcmpl-{accepted.run_id}"
+        model = str(body.get("model") or "claw")
+        created = int(time.time())
+
+        def chunk(delta: dict[str, Any], finish: str | None = None) -> str:
+            payload = {
+                "id": completion_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model,
+                "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+            }
+            return f"data: {json.dumps(payload)}\n\n"
+
+        if not body.get("stream"):
+            snap = await runner.wait(accepted.run_id)
+            return JSONResponse(
+                {
+                    "id": completion_id,
+                    "object": "chat.completion",
+                    "created": created,
+                    "model": model,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {"role": "assistant", "content": snap.output or ""},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                }
+            )
+
+        async def stream() -> Any:
+            deltas: asyncio.Queue[str | None] = asyncio.Queue()
+
+            async def on_event(event: AgentEvent) -> None:
+                delta = event.data.get("delta")
+                if (
+                    event.run_id == accepted.run_id
+                    and event.stream == "assistant"
+                    and isinstance(delta, str)
+                ):
+                    deltas.put_nowait(delta)
+
+            unsubscribe = runner.subscribe(on_event)
+            streamed = False
+
+            async def finish() -> str | None:
+                snap = await runner.wait(accepted.run_id)
+                deltas.put_nowait(None)
+                return snap.output
+
+            finisher = asyncio.create_task(finish())
+            filler_due = VAPI_FILLER_FIRST_S
+            filler_spoken = False
+            try:
+                yield chunk({"role": "assistant", "content": ""})
+                while True:
+                    # Long tool runs emit no text; Vapi fails the call if the
+                    # stream stays silent, so speak a short filler while waiting.
+                    try:
+                        delta = await asyncio.wait_for(deltas.get(), timeout=filler_due)
+                    except asyncio.TimeoutError:
+                        yield chunk(
+                            {
+                                "content": VAPI_FILLER_AGAIN
+                                if filler_spoken
+                                else VAPI_FILLER_FIRST
+                            }
+                        )
+                        filler_spoken = True
+                        filler_due = VAPI_FILLER_REPEAT_S
+                        continue
+                    if delta is None:
+                        break
+                    if filler_spoken and not streamed:
+                        delta = f" {delta}"
+                    streamed = True
+                    yield chunk({"content": delta})
+                output = await finisher
+                if not streamed:
+                    reply = output or "Sorry, I didn't catch that."
+                    yield chunk({"content": f" {reply}" if filler_spoken else reply})
+                yield chunk({}, finish="stop")
+                yield "data: [DONE]\n\n"
+            finally:
+                unsubscribe()
+                finisher.cancel()
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
 
     @app.websocket("/ws")
     async def websocket_endpoint(ws: WebSocket) -> None:

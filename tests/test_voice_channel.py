@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import httpx
 import pytest
@@ -133,3 +134,64 @@ def test_voice_websocket_handles_empty_transcript(settings: Settings) -> None:
 
                 frame = ws.receive_json()
                 assert frame["type"] == "error"
+
+
+def test_vapi_custom_llm_routes_call_through_claw_agent(settings: Settings) -> None:
+    vapi_settings = dataclasses.replace(settings, vapi_llm_secret="s3cret")
+    runner = AgentRunner.create(vapi_settings)
+    app = create_app(vapi_settings, runner)
+    body = {
+        "model": "claw",
+        "stream": True,
+        "messages": [
+            {"role": "system", "content": "ignored"},
+            {"role": "user", "content": "what time is it"},
+        ],
+        "call": {"id": "call-1", "customer": {"number": "+13135550100"}},
+    }
+
+    with TestClient(app) as client:
+        assert client.post("/vapi/wrong/chat/completions", json=body).status_code == 404
+
+        resp = client.post("/vapi/s3cret/chat/completions", json=body)
+        assert resp.status_code == 200
+        lines = [ln[6:] for ln in resp.text.splitlines() if ln.startswith("data: ")]
+        assert lines[-1] == "[DONE]"
+        chunks = [json.loads(ln) for ln in lines[:-1]]
+        assert chunks[0]["choices"][0]["delta"]["role"] == "assistant"
+        assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
+        assert any(c["choices"][0]["delta"].get("content") for c in chunks)
+
+        plain = client.post("/vapi/s3cret/chat/completions", json={**body, "stream": False})
+        assert plain.json()["choices"][0]["message"]["content"]
+
+    assert len(runner.store.load("agent:main:main")) > 0
+
+
+def test_vapi_stream_speaks_filler_while_agent_is_silent(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from claw.gateway import server as gateway_server
+
+    monkeypatch.setattr(gateway_server, "VAPI_FILLER_FIRST_S", 0.0)
+    monkeypatch.setattr(gateway_server, "VAPI_FILLER_REPEAT_S", 60.0)
+    vapi_settings = dataclasses.replace(settings, vapi_llm_secret="s3cret")
+    app = create_app(vapi_settings, AgentRunner.create(vapi_settings))
+    body = {
+        "model": "claw",
+        "stream": True,
+        "messages": [{"role": "user", "content": "what time is it"}],
+        "call": {"id": "call-2"},
+    }
+
+    with TestClient(app) as client:
+        resp = client.post("/vapi/s3cret/chat/completions", json=body)
+    lines = [ln[6:] for ln in resp.text.splitlines() if ln.startswith("data: ")]
+    assert lines[-1] == "[DONE]"
+    texts = [
+        c["choices"][0]["delta"].get("content")
+        for c in map(json.loads, lines[:-1])
+    ]
+    texts = [t for t in texts if t]
+    assert texts[0] == gateway_server.VAPI_FILLER_FIRST
+    assert len(texts) > 1 and texts[1].startswith(" ")

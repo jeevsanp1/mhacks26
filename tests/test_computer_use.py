@@ -48,6 +48,7 @@ class _FakeMSS:
 class _FakePyAutoGUI:
     FAILSAFE = True
     PAUSE = 0.0
+    KEYBOARD_KEYS = ["command", "c", "enter", "l"]
     _pos = (10, 20)
     moves: list[tuple]
     clicks: list[tuple]
@@ -165,6 +166,15 @@ def test_key_normalization_and_hotkey(fake_stack: _FakePyAutoGUI) -> None:
     out = cu.computer_action("key", text="cmd+c", include_screenshot=False)
     assert "pressed" in out
     assert fake_stack.hotkeys[-1] == ("command", "c")
+
+
+def test_key_rejects_text_instead_of_silently_pressing(
+    fake_stack: _FakePyAutoGUI,
+) -> None:
+    out = cu.computer_action("key", text="Hello World", include_screenshot=False)
+    assert isinstance(out, str) and out.startswith("error:")
+    assert "type" in out
+    assert not fake_stack.hotkeys
 
 
 def test_scroll_down(fake_stack: _FakePyAutoGUI) -> None:

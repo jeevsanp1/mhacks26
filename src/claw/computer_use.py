@@ -458,6 +458,12 @@ def computer_action(
             if not text:
                 return "error: key requires text (e.g. 'Return', 'ctrl+c', 'cmd+space')"
             keys = _normalize_keys(text)
+            bad = [k for k in keys if k not in pyautogui.KEYBOARD_KEYS]
+            if bad:
+                return (
+                    f"error: unknown key(s) {bad}; key presses named keys/combos "
+                    "like 'enter' or 'cmd+l'. To enter text, use action='type'."
+                )
             if len(keys) == 1:
                 pyautogui.press(keys[0])
             else:
