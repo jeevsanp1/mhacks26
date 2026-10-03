@@ -25,6 +25,9 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 18789
 DEFAULT_STATE_DIR = Path(".claw")
 DEFAULT_HEARTBEAT_EVERY = "0m"  # off unless CLAW_HEARTBEAT is set (e.g. 30m)
+DEFAULT_ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # "Rachel" — ElevenLabs premade default
+DEFAULT_ELEVENLABS_STT_MODEL = "scribe_v2"
+DEFAULT_ELEVENLABS_TTS_MODEL = "eleven_flash_v2_5"
 
 
 @dataclass(frozen=True)
@@ -47,6 +50,10 @@ class Settings:
     spacetime_token: str | None = None
     spacetime_worker_id: str = "claw-worker"
     computer_use: bool = True
+    elevenlabs_api_key: str | None = None
+    elevenlabs_voice_id: str = DEFAULT_ELEVENLABS_VOICE_ID
+    elevenlabs_stt_model: str = DEFAULT_ELEVENLABS_STT_MODEL
+    elevenlabs_tts_model: str = DEFAULT_ELEVENLABS_TTS_MODEL
 
     @property
     def sessions_dir(self) -> Path:
@@ -142,4 +149,17 @@ def get_settings() -> Settings:
             or f"claw-{os.getpid()}"
         ),
         computer_use=computer_use,
+        elevenlabs_api_key=os.getenv("ELEVENLABS_API_KEY", "").strip() or None,
+        elevenlabs_voice_id=(
+            os.getenv("ELEVENLABS_VOICE_ID", DEFAULT_ELEVENLABS_VOICE_ID).strip()
+            or DEFAULT_ELEVENLABS_VOICE_ID
+        ),
+        elevenlabs_stt_model=(
+            os.getenv("ELEVENLABS_STT_MODEL", DEFAULT_ELEVENLABS_STT_MODEL).strip()
+            or DEFAULT_ELEVENLABS_STT_MODEL
+        ),
+        elevenlabs_tts_model=(
+            os.getenv("ELEVENLABS_TTS_MODEL", DEFAULT_ELEVENLABS_TTS_MODEL).strip()
+            or DEFAULT_ELEVENLABS_TTS_MODEL
+        ),
     )

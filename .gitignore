@@ -15,3 +15,7 @@ build/
 node_modules/
 spacetimedb/spacetimedb/node_modules/
 spacetimedb/spacetimedb/dist/
+
+# ElevenLabs voice agent — local runtime state (memory store, audit log, agent/tool ids)
+data/
+!data/.gitkeep
