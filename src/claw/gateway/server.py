@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import json
+import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -81,6 +82,10 @@ def create_app(
         app.state.connections = set()
 
         async def on_agent_event(event: AgentEvent) -> None:
+            # Mirror streamed assistant tokens to the gateway's own terminal.
+            if event.stream == "assistant":
+                sys.stderr.write(str(event.data.get("delta") or ""))
+                sys.stderr.flush()
             global_seq["n"] += 1
             frame = protocol.event("agent", event.to_payload(), seq=global_seq["n"])
             dead: list[Connection] = []
