@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claw voice</title>
+  <style>
+    :root {
+      --bg: #f4f2ee;
+      --ink: #1a1a1a;
+      --muted: #6b6b6b;
+      --line: #d8d4cc;
+      --user: #e8e4dc;
+      --bot: #fff;
+      --accent: #1a1a1a;
+      --danger: #9b2c2c;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    header h1 { margin: 0; font-size: 1.1rem; font-weight: 650; }
+    #status { font-size: 0.85rem; color: var(--muted); }
+    #status.ok { color: #2f6b4f; }
+    #status.bad { color: var(--danger); }
+    #log {
+      flex: 1;
+      overflow: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      font-size: 1.15rem;
+    }
+    .msg {
+      max-width: 42rem;
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.45;
+    }
+    .msg.user { align-self: flex-end; background: var(--user); }
+    .msg.assistant { align-self: flex-start; background: var(--bot); }
+    .msg.meta {
+      align-self: center;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.2rem;
+    }
+    footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 1.25rem;
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+    #talk {
+      width: 7rem;
+      height: 7rem;
+      border-radius: 50%;
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+    }
+    #talk:disabled { opacity: 0.4; cursor: wait; }
+    #talk.recording { background: var(--danger); }
+    #hint { color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Claw — voice</h1>
+    <span id="status">connecting…</span>
+  </header>
+  <div id="log"></div>
+  <footer>
+    <button id="talk" disabled>Hold to talk</button>
+    <span id="hint">Press and hold, speak, then release.</span>
+    <audio id="player" style="display:none"></audio>
+  </footer>
+  <script>
+    const log = document.getElementById("log");
+    const statusEl = document.getElementById("status");
+    const talkBtn = document.getElementById("talk");
+    const hint = document.getElementById("hint");
+    const player = document.getElementById("player");
+
+    let ws = null;
+    let mediaRecorder = null;
+    let chunks = [];
+    let recording = false;
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = cls || "";
+    }
+
+    function addMsg(role, text) {
+      const el = document.createElement("div");
+      el.className = `msg ${role}`;
+      el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+      return el;
+    }
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${proto}://${location.host}/ws/voice`);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = async () => {
+        setStatus("requesting microphone…");
+        try {
+          await setupRecorder();
+          setStatus("connected", "ok");
+          talkBtn.disabled = false;
+        } catch (err) {
+          setStatus("microphone access denied", "bad");
+          addMsg("meta", String(err));
+        }
+      };
+
+      ws.onmessage = (ev) => {
+        if (typeof ev.data !== "string") {
+          const blob = new Blob([ev.data], { type: "audio/mpeg" });
+          player.src = URL.createObjectURL(blob);
+          player.play().catch(() => {});
+          return;
+        }
+        let frame;
+        try { frame = JSON.parse(ev.data); } catch { return; }
+
+        if (frame.type === "turn") {
+          addMsg("user", frame.transcript);
+          addMsg("assistant", frame.reply);
+          hint.textContent = "Press and hold, speak, then release.";
+        } else if (frame.type === "error") {
+          addMsg("meta", frame.message);
+          hint.textContent = "Press and hold, speak, then release.";
+        }
+      };
+
+      ws.onclose = () => {
+        setStatus("disconnected — retrying…", "bad");
+        talkBtn.disabled = true;
+        setTimeout(connect, 1500);
+      };
+
+      ws.onerror = () => setStatus("connection error", "bad");
+    }
+
+    async function setupRecorder() {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        chunks = [];
+        if (blob.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(await blob.arrayBuffer());
+          ws.send(JSON.stringify({ type: "end_utterance" }));
+          hint.textContent = "Thinking…";
+        }
+      };
+    }
+
+    function startTalking() {
+      if (!mediaRecorder || recording || mediaRecorder.state === "recording") return;
+      recording = true;
+      talkBtn.classList.add("recording");
+      talkBtn.textContent = "Listening…";
+      chunks = [];
+      mediaRecorder.start();
+    }
+
+    function stopTalking() {
+      if (!recording) return;
+      recording = false;
+      talkBtn.classList.remove("recording");
+      talkBtn.textContent = "Hold to talk";
+      if (mediaRecorder.state === "recording") mediaRecorder.stop();
+    }
+
+    talkBtn.addEventListener("mousedown", startTalking);
+    talkBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startTalking(); });
+    talkBtn.addEventListener("mouseup", stopTalking);
+    talkBtn.addEventListener("mouseleave", stopTalking);
+    talkBtn.addEventListener("touchend", (e) => { e.preventDefault(); stopTalking(); });
+
+    connect();
+  </script>
+</body>
+</html>

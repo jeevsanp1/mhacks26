@@ -203,3 +203,71 @@ src/claw/
   cli.py           # typer entrypoints
   tui.py           # Textual chat UI
 ```
+
+---
+
+# ElevenLabs voice companion agent
+
+A separate Node/TypeScript project living alongside `src/claw/` — a voice-first
+companion agent for older adults, built on ElevenLabs Conversational AI. See
+`reqs.md` for the requirements and architecture.
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env   # fill in ELEVENLABS_API_KEY and TOOL_WEBHOOK_SECRET
+```
+
+`ELEVENLABS_API_KEY` needs **Conversational AI: Read + Write** for this Node
+project. If claw's voice channel (below) also uses this key, it additionally
+needs **Speech to Text** and **Text to Speech** — nothing else (not Voices,
+Workspace members, etc.).
+
+## Run
+
+```bash
+npm run dev          # Express server: tool webhooks + post-call webhook
+ngrok http 3000       # or: cloudflared tunnel --url http://localhost:3000
+```
+
+Set `WEBHOOK_BASE_URL` in `.env` to the tunnel's `https://` URL, register
+`<WEBHOOK_BASE_URL>/webhooks/post-call` in the ElevenLabs dashboard
+(Conversational AI → Settings → Webhooks) and copy its signing secret into
+`POST_CALL_WEBHOOK_SECRET`. Then:
+
+```bash
+npm run create-agent  # registers tools + creates/updates the agent
+```
+
+Re-running `create-agent` is safe — state is cached in `data/agent-state.json`
+(gitignored) so it updates in place.
+
+## Layout
+
+- `src/agent/` — system prompt, tool definitions, the script that registers them with ElevenLabs.
+- `src/policy/` — tiered permissions, spending caps, payee allowlist/cooling-off, confirmation tokens. Enforced server-side, independent of the model.
+- `src/memory/` — JSON-file-backed memory store (`data/memory.json`), inspectable/editable outside the agent.
+- `src/scam/` — rules-based scam-pattern classifier for untrusted inbound content.
+- `src/notify/` — rate-limited trusted-contact notification stub.
+- `src/server/` — Express app wiring the tool and webhook routes.
+
+## claw's voice channel (browser prototype)
+
+Separately, `src/claw/channels/voice.py` lets **claw itself** (its own
+Pydantic AI agent, memory, tools) speak and listen, using ElevenLabs' raw
+Speech-to-Text / Text-to-Speech endpoints — not the Conversational AI Agents
+platform above. It plugs into claw's existing multi-channel routing
+(`claw/channels/dispatch.py`) exactly like Telegram/Slack/CLI do, just with
+audio instead of typed text, so memory/tools/sessions behave identically.
+
+```bash
+uv run claw gateway   # or: source .venv/bin/activate && python -m claw.gateway...
+# open http://127.0.0.1:18789/voice, hold the button, speak, release
+```
+
+Requires `ELEVENLABS_API_KEY` (see permission note above) and optionally
+`ELEVENLABS_VOICE_ID` in `.env`. This is a push-to-talk prototype (no
+server-side VAD, no telephony) — see `reqs.md` for the requirements this is
+working toward and the plan at the time of writing for what's deliberately
+deferred (streaming STT/TTS for lower latency, Twilio phone calls).

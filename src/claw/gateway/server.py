@@ -12,6 +12,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from starlette.websockets import WebSocketState
 
+from claw.channels.dispatch import dispatch_inbound
+from claw.channels.voice import ElevenLabsSpeech, ElevenLabsSpeechError
 from claw.config import Settings, get_settings
 from claw.events import AgentEvent
 from claw.gateway import methods, protocol
@@ -99,6 +101,12 @@ def create_app(
     async def chat() -> FileResponse:
         """Simple browser chat over the gateway WebSocket."""
         path = STATIC_DIR / "dashboard.html"
+        return FileResponse(path, media_type="text/html; charset=utf-8")
+
+    @app.get("/voice", response_class=HTMLResponse)
+    async def voice_page() -> FileResponse:
+        """Push-to-talk voice prototype over /ws/voice."""
+        path = STATIC_DIR / "voice.html"
         return FileResponse(path, media_type="text/html; charset=utf-8")
 
     @app.get("/health")
@@ -275,6 +283,88 @@ def create_app(
         finally:
             conn.connected = False
             app.state.connections.discard(conn)
+
+    @app.websocket("/ws/voice")
+    async def voice_websocket(ws: WebSocket) -> None:
+        """Push-to-talk voice loop: audio in -> STT -> dispatch_inbound -> TTS -> audio out.
+
+        Reuses the exact same routing/runner pipeline as every other channel —
+        see claw/channels/dispatch.py. The only new thing here is speech I/O.
+        """
+        await ws.accept()
+        conn_id = str(uuid.uuid4())
+
+        try:
+            speech = ElevenLabsSpeech(app.state.settings)
+        except ElevenLabsSpeechError as exc:
+            await ws.send_text(protocol.dumps({"type": "error", "message": str(exc)}))
+            await ws.close(code=1011)
+            return
+
+        audio_buf = bytearray()
+        try:
+            while True:
+                message = await ws.receive()
+                if message.get("type") == "websocket.disconnect":
+                    break
+
+                raw_bytes = message.get("bytes")
+                if raw_bytes is not None:
+                    audio_buf.extend(raw_bytes)
+                    continue
+
+                raw_text = message.get("text")
+                if raw_text is None:
+                    continue
+                try:
+                    frame = protocol.parse_frame(raw_text)
+                except Exception:
+                    continue
+
+                if frame.get("type") != "end_utterance":
+                    continue
+                if not audio_buf:
+                    await ws.send_text(
+                        protocol.dumps({"type": "error", "message": "no audio received"})
+                    )
+                    continue
+
+                utterance = bytes(audio_buf)
+                audio_buf.clear()
+
+                try:
+                    transcript = await speech.transcribe(utterance)
+                    if not transcript.strip():
+                        await ws.send_text(
+                            protocol.dumps(
+                                {"type": "error", "message": "couldn't hear anything — try again"}
+                            )
+                        )
+                        continue
+
+                    result = await dispatch_inbound(
+                        app.state.runner,
+                        {
+                            "channel": "voice",
+                            "text": transcript,
+                            "peer": {"kind": "direct", "id": conn_id},
+                        },
+                        wait=True,
+                    )
+                    reply_text = (result.get("outbound") or {}).get("text") or "(no reply)"
+
+                    await ws.send_text(
+                        protocol.dumps(
+                            {"type": "turn", "transcript": transcript, "reply": reply_text}
+                        )
+                    )
+
+                    audio_reply = await speech.synthesize(reply_text)
+                    await ws.send_bytes(audio_reply)
+                except ElevenLabsSpeechError as exc:
+                    await ws.send_text(protocol.dumps({"type": "error", "message": str(exc)}))
+        except WebSocketDisconnect:
+            pass
 
     return app
 
