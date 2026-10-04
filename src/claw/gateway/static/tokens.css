@@ -1,0 +1,144 @@
+/*
+ * Design tokens. Values come from the SBB design system (digital.sbb.ch, Lyne v5.7.0
+ * standard theme): 4px spacing grid, type scale, radii, border widths, elevation,
+ * motion and breakpoints. Colours are Claw's own palette (see below), not SBB's.
+ *
+ * Deliberate departures, both of which keep us inside SBB's rules:
+ *  - Colours are the user's palette (teal / coral / mist / ink / tan), not SBB's. SBB
+ *    logo/icons/pictograms/clock/typeface are not used (SBB "Rights of use").
+ *  - Accessibility target is WCAG 2.2 AAA (7:1 text), stricter than SBB's AA minimum,
+ *    so every colour used is a lightness step of a palette hue that meets AAA. Dark mode follows the system setting.
+ */
+:root {
+  /* ---- Colour primitives: the Claw palette (coolors.co/f05d5e-0f7173-e7ecef-272932-d8a47f) ----
+     Only AAA-clean shades are defined; the raw teal and tan are not used. Each shade is a
+     lightness step of a palette hue. Dark values are solved against the dark surfaces. */
+  color-scheme: light dark;
+
+  --ds-color-white: #ffffff;
+  --ds-color-mist: #e7ecef;
+  --ds-color-mist-deep: #d3dbe0;
+  --ds-color-ink: #272932;
+  --ds-color-ink-soft: #454956;
+  --ds-color-slate: #757c8a;
+  --ds-color-teal: #0d6263;
+  --ds-color-teal-hover: #0a4e4f;
+  --ds-color-teal-active: #083d3d;
+  --ds-color-coral: #f05d5e;
+  --ds-color-coral-deep: #940e0f;
+  --ds-color-tan-soft: #e2b794;
+  --ds-color-tan-deep: #91562c;
+
+  --ds-dark-page: #1b1d25;
+  --ds-dark-subtle: #272932;
+  --ds-dark-muted: #363a49;
+  --ds-dark-text: #e7ecef;
+  --ds-dark-text-soft: #c9ccd4;
+  --ds-dark-border: #6c727f;
+  --ds-dark-teal: #6ec2c4;
+  --ds-dark-teal-hover: #80cacb;
+  --ds-dark-teal-active: #92d1d3;
+  --ds-dark-coral-text: #f9bebe;
+  --ds-dark-tan: #dbac8a;
+
+  /* ---- Semantic colour (light / dark follow the system setting, as in SBB) ---- */
+  --ds-bg-page: light-dark(var(--ds-color-white), var(--ds-dark-page));
+  --ds-bg-subtle: light-dark(var(--ds-color-mist), var(--ds-dark-subtle));
+  --ds-bg-muted: light-dark(var(--ds-color-mist-deep), var(--ds-dark-muted));
+  --ds-bg-warn: light-dark(var(--ds-color-tan-soft), var(--ds-dark-subtle));
+  --ds-text: light-dark(var(--ds-color-ink), var(--ds-dark-text));
+  --ds-text-secondary: light-dark(var(--ds-color-ink-soft), var(--ds-dark-text-soft));
+  --ds-text-disabled: light-dark(var(--ds-color-slate), var(--ds-dark-border));
+  --ds-text-on-primary: light-dark(var(--ds-color-white), var(--ds-dark-page));
+  --ds-text-error: light-dark(var(--ds-color-coral-deep), var(--ds-dark-coral-text));
+  --ds-border-control: light-dark(var(--ds-color-slate), var(--ds-dark-border));
+  --ds-border-divider: light-dark(var(--ds-color-mist), var(--ds-dark-muted));
+  --ds-primary: light-dark(var(--ds-color-teal), var(--ds-dark-teal));
+  --ds-primary-hover: light-dark(var(--ds-color-teal-hover), var(--ds-dark-teal-hover));
+  --ds-primary-active: light-dark(var(--ds-color-teal-active), var(--ds-dark-teal-active));
+  --ds-status-info: var(--ds-primary);
+  --ds-status-success: var(--ds-primary);
+  --ds-status-warn: light-dark(var(--ds-color-tan-deep), var(--ds-dark-tan));
+  --ds-status-error: var(--ds-color-coral);
+  --ds-focus-color: light-dark(var(--ds-color-ink), var(--ds-dark-text));
+  --ds-shadow-color-1: light-dark(color-mix(in srgb, var(--ds-color-ink) 10%, transparent), color-mix(in srgb, black 30%, transparent));
+  --ds-shadow-color-2: light-dark(color-mix(in srgb, var(--ds-color-ink) 20%, transparent), color-mix(in srgb, black 40%, transparent));
+
+  /* ---- Typography ---- */
+  /* SBB's own font stack minus the licensed "SBB" face. */
+  --ds-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  --ds-text-m: 1rem;          /* floor: SBB recommends >= 16px */
+  --ds-text-l: 1.125rem;      /* body for this product (older adults) */
+  --ds-text-xl: 1.25rem;
+  --ds-text-2x: 1.5rem;
+  --ds-text-3x: 2rem;
+  --ds-line-height-text: 1.75;
+  --ds-line-height-heading: 1.4;
+  --ds-letter-spacing-text: 0.03em;
+  --ds-letter-spacing-heading: 0em;
+  --ds-measure: 65ch;
+
+  /* ---- Spacing (SBB fixed scale, 4px grid) ---- */
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.25rem;
+  --ds-space-6: 1.5rem;
+  --ds-space-8: 2rem;
+  --ds-space-10: 2.5rem;
+  --ds-space-12: 3rem;
+  --ds-space-16: 4rem;
+
+  /* ---- Element sizes. Never below 2.75rem (44px) for anything tappable. ---- */
+  --ds-size-s: 2.75rem;
+  --ds-size-m: 3rem;
+  --ds-size-l: 3.5rem;
+  --ds-size-xl: 7rem;         /* hold-to-talk */
+
+  /* ---- Shape ---- */
+  --ds-radius-2x: 0.25rem;
+  --ds-radius-4x: 0.5rem;     /* cards, form fields, notifications */
+  --ds-radius-6x: 0.75rem;
+  --ds-radius-8x: 1rem;       /* dialogs */
+  --ds-radius-pill: 999px;    /* buttons */
+  --ds-border-1x: 0.0625rem;
+  --ds-border-2x: 0.125rem;
+  --ds-border-3x: 0.1875rem;
+  --ds-border-4x: 0.25rem;
+
+  /* ---- Elevation (SBB level 3 and 9; layered, soft) ---- */
+  --ds-shadow-3: 0 0.125rem 1rem var(--ds-shadow-color-1), 0 0.0625rem 0.25rem var(--ds-shadow-color-2);
+  --ds-shadow-9: 0 1rem 8rem var(--ds-shadow-color-1), 0 0.25rem 2rem var(--ds-shadow-color-2);
+
+  /* ---- Motion ---- */
+  --ds-duration-fast: 0.12s;
+  --ds-duration-base: 0.16s;
+  --ds-duration-slow: 0.24s;
+  --ds-easing: cubic-bezier(0.47, 0.1, 1, 0.63);
+
+  /* ---- Focus ---- */
+  --ds-focus-width: var(--ds-border-3x);
+  --ds-focus-offset: 0.1875rem;
+
+  /* ---- Layout: 4 / 8 / 12 / 16 columns ---- */
+  --ds-gutter: 1rem;
+  --ds-offset: 1.25rem;
+  --ds-page-max-width: 75rem;
+}
+
+/* Breakpoints: zero < 600px <= small < 1024px <= large < 1440px <= ultra */
+@media (min-width: 37.5rem) {
+  :root { --ds-gutter: 1.5rem; --ds-offset: 3rem; }
+}
+@media (min-width: 64rem) {
+  :root { --ds-gutter: 2rem; --ds-offset: 4rem; }
+}
+@media (min-width: 90rem) {
+  :root { --ds-offset: 7.5rem; }
+}
+
+/* Manual theme override (set by the header switch); otherwise the system setting applies. */
+html[data-theme="light"] { color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; }

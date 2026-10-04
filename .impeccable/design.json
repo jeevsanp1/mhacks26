@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T00:00:00Z",
+  "title": "Design System: Claw",
+  "extensions": {
+    "colorMeta": {
+      "teal": {
+        "role": "primary",
+        "displayName": "Teal",
+        "canonical": "#0d6263",
+        "tonalRamp": [
+          "#052e2f",
+          "#083d3d",
+          "#0d6263",
+          "#0f7173",
+          "#4a9799",
+          "#86b9ba",
+          "#c1dcdc",
+          "#e6f1f1"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#272932",
+        "tonalRamp": [
+          "#0e0f13",
+          "#1a1c22",
+          "#272932",
+          "#454956",
+          "#757c8a",
+          "#a4aab5",
+          "#d3dbe0",
+          "#e7ecef"
+        ]
+      },
+      "mist": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "canonical": "#e7ecef",
+        "tonalRamp": [
+          "#454956",
+          "#757c8a",
+          "#a4aab5",
+          "#c0c8d0",
+          "#d3dbe0",
+          "#e7ecef",
+          "#f3f6f7",
+          "#ffffff"
+        ]
+      },
+      "coral": {
+        "role": "error",
+        "displayName": "Coral",
+        "canonical": "#f05d5e",
+        "tonalRamp": [
+          "#4a0809",
+          "#940e0f",
+          "#c4272a",
+          "#f05d5e",
+          "#f48a8b",
+          "#f8b1b2",
+          "#fcd7d7",
+          "#fef0f0"
+        ]
+      },
+      "tan": {
+        "role": "status",
+        "displayName": "Tan",
+        "canonical": "#d8a47f",
+        "tonalRamp": [
+          "#4a2b14",
+          "#91562c",
+          "#b97a4c",
+          "#d8a47f",
+          "#e2b794",
+          "#ecceb4",
+          "#f4e2d3",
+          "#fbf4ed"
+        ]
+      },
+      "dark-teal": {
+        "role": "primary-dark",
+        "displayName": "Dark-mode teal",
+        "canonical": "#6ec2c4",
+        "tonalRamp": [
+          "#92d1d3",
+          "#80cacb",
+          "#6ec2c4"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Widget figures and greetings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Chat and summaries, 65ch measure."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, badges, state words; 1rem floor."
+      }
+    },
+    "shadows": [
+      {
+        "name": "elevation-3",
+        "value": "0 0.125rem 1rem rgba(39,41,50,.10), 0 0.0625rem 0.25rem rgba(39,41,50,.20)",
+        "purpose": "Hover on buttons and cards."
+      },
+      {
+        "name": "elevation-9",
+        "value": "0 1rem 8rem rgba(39,41,50,.10), 0 0.25rem 2rem rgba(39,41,50,.20)",
+        "purpose": "Dialogs."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-fast",
+        "value": "0.12s",
+        "purpose": "Hover and press feedback."
+      },
+      {
+        "name": "duration-base",
+        "value": "0.16s",
+        "purpose": "Default state transitions."
+      },
+      {
+        "name": "duration-slow",
+        "value": "0.24s",
+        "purpose": "Disclosure and panel changes."
+      },
+      {
+        "name": "easing",
+        "value": "cubic-bezier(.47,.1,1,.63)",
+        "purpose": "SBB standard easing."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "zero",
+        "value": "0"
+      },
+      {
+        "name": "small",
+        "value": "37.5rem"
+      },
+      {
+        "name": "large",
+        "value": "64rem"
+      },
+      {
+        "name": "ultra",
+        "value": "90rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action in a view.",
+      "html": "<button class=\"ds-btn\">Send</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:3rem;padding:.25rem 1.25rem;border:.125rem solid #0f7173;border-radius:999px;background:#0f7173;color:#fff;font:700 1.125rem/1.4 'Helvetica Neue',Helvetica,Arial,sans-serif;cursor:pointer;transition:background-color .16s ease-out,box-shadow .16s ease-out}.ds-btn:hover{background:#0d6263;border-color:#0d6263;box-shadow:0 .125rem 1rem rgba(39,41,50,.1),0 .0625rem .25rem rgba(39,41,50,.2)}.ds-btn:active{background:#083d3d;border-color:#083d3d}.ds-btn:focus-visible{outline:.1875rem solid #272932;outline-offset:.1875rem}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting action beside a primary.",
+      "html": "<button class=\"ds-btn2\">Cancel</button>",
+      "css": ".ds-btn2{display:inline-flex;align-items:center;justify-content:center;min-height:3rem;padding:.25rem 1.25rem;border:.125rem solid #757c8a;border-radius:999px;background:#fff;color:#272932;font:700 1.125rem/1.4 'Helvetica Neue',Helvetica,Arial,sans-serif;cursor:pointer}.ds-btn2:hover{background:#e7ecef;border-color:#272932}.ds-btn2:focus-visible{outline:.1875rem solid #272932;outline-offset:.1875rem}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Labelled input; placeholder is an example only.",
+      "html": "<div class=\"ds-field\"><label for=\"m\">Your message</label><input id=\"m\" type=\"text\" placeholder=\"What is on my calendar?\"></div>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:.25rem;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}.ds-field label{font-weight:700;font-size:1rem;color:#272932}.ds-field input{min-height:3rem;padding:.5rem .75rem;border:.0625rem solid #757c8a;border-radius:.5rem;font:inherit;font-size:1.125rem;color:#272932}.ds-field input::placeholder{color:#454956;opacity:1}.ds-field input:focus-visible{outline:.1875rem solid #272932;outline-offset:.1875rem}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "A word plus a status-coloured border.",
+      "html": "<span class=\"ds-badge\">Connected</span>",
+      "css": ".ds-badge{display:inline-block;padding:0 .75rem;border:.0625rem solid #0f7173;border-radius:.25rem;background:#e7ecef;color:#272932;font:700 1rem/1.5 'Helvetica Neue',Helvetica,Arial,sans-serif}"
+    },
+    {
+      "name": "Connector Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Selectable data source; state is always written out.",
+      "html": "<button class=\"ds-conn\"><strong>Nessie</strong><span>Capital One accounts and purchases.</span><b>Not loaded yet</b></button>",
+      "css": ".ds-conn{display:block;width:17rem;text-align:left;padding:.75rem 1rem;border:.125rem solid #e7ecef;border-radius:.5rem;background:#fff;color:#272932;font:400 1rem/1.6 'Helvetica Neue',Helvetica,Arial,sans-serif;cursor:pointer}.ds-conn span,.ds-conn b{display:block;color:#444}.ds-conn b{color:#272932}.ds-conn:hover{border-color:#272932;box-shadow:0 .125rem 1rem rgba(39,41,50,.1),0 .0625rem .25rem rgba(39,41,50,.2)}.ds-conn:focus-visible{outline:.1875rem solid #272932;outline-offset:.1875rem}"
+    },
+    {
+      "name": "Assistant Message",
+      "kind": "custom",
+      "refersTo": "message-assistant",
+      "description": "Left-aligned reply, 65ch maximum.",
+      "html": "<div class=\"ds-msg\">Your checking balance is $1,240.55.</div>",
+      "css": ".ds-msg{max-width:65ch;padding:.75rem 1.25rem;border:.125rem solid #e7ecef;border-radius:.75rem;background:#fff;color:#272932;font:400 1.125rem/1.75 'Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:.03em}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Station Concourse",
+    "overview": "A public concourse works because it is calm, legible and obvious. White and light grey carry about 60% of every screen, charcoal and neutrals about 25%, teal about 10% for the one thing to do next, and status colors the remaining 5%. Type is large, spacing is generous, controls are big and round.",
+    "keyCharacteristics": [
+      "60 / 25 / 10 / 5 colour ratio.",
+      "WCAG 2.2 AAA: 7:1 text, 44px targets, 3px focus rings, never colour alone.",
+      "Large, plain type: 18px body, nothing below 16px.",
+      "One primary action per view; large pill buttons.",
+      "Everything native: real buttons, links, labels, headings, landmarks."
+    ],
+    "rules": [
+      {
+        "name": "The Teal Rule",
+        "body": "Teal marks the next step. If more than one thing on a screen is teal-filled, none of them is.",
+        "section": "colors"
+      },
+      {
+        "name": "The Coral-Is-Errors Rule",
+        "body": "Coral is for errors only (SBB reserves red for errors; the rule carries over).",
+        "section": "colors"
+      },
+      {
+        "name": "The Words-Beside-Colour Rule",
+        "body": "Every status colour is paired with a word. Colour alone never carries meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Honest Data Rule",
+        "body": "Mock and sample data is labelled as such, never in Green.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sixteen-Pixel Floor",
+        "body": "No text under 1rem.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence-Case Rule",
+        "body": "Sentence case everywhere; no all-caps labels.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Lift Rule",
+        "body": "Elevation answers an interaction; it is not a resting decoration.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep white and mist at about 60% of any screen and teal at about 10%.",
+      "Do use the SBB spacing scale and radius scale, and the tokens in tokens.css.",
+      "Do make every tappable target at least 44 x 44px and every text at least 16px.",
+      "Do pair every colour signal with a word, shape or underline.",
+      "Do use native elements, visible labels, skip links and landmarks.",
+      "Do write sentence case, short verb-first button labels, descriptive link text, and errors that say how to fix them.",
+      "Do respect prefers-reduced-motion.",
+      "Do support light and dark from the same tokens, solved separately for AAA."
+    ],
+    "donts": [
+      "Don't use the SBB logo, signet, icons, pictograms, clock or typeface.",
+      "Don't use coral for anything but errors.",
+      "Don't use all-caps labels, placeholder-only labels or \"Click here\".",
+      "Don't use more than one primary button per view.",
+      "Don't rely on hover, drag, multi-touch or long-press as the only way to do something.",
+      "Don't use Unicode glyphs or emoji as icons, or decorative shadows and gradients.",
+      "Don't use the raw palette teal or tan; use the AAA steps."
+    ]
+  }
+}

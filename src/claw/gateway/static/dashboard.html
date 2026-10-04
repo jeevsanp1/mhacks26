@@ -4,264 +4,311 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Claw dashboard</title>
+  <script>try { const t = localStorage.getItem("claw-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
+  <link rel="stylesheet" href="/static/tokens.css" />
   <style>
-    :root {
-      --bg: #f4f2ee;
-      --ink: #1a1a1a;
-      --muted: #6b6b6b;
-      --line: #d8d4cc;
-      --user: #e8e4dc;
-      --bot: #fff;
-      --tool: #faf9f6;
-      --running: #8a6d1f;
-      --done: #2f6b4f;
-      --accent: #1a1a1a;
-      --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-    }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
-      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--ink);
+      font-family: var(--ds-font);
+      font-size: var(--ds-text-l);
+      line-height: var(--ds-line-height-text);
+      letter-spacing: var(--ds-letter-spacing-text);
+      background: var(--ds-bg-page);
+      color: var(--ds-text);
       display: flex;
       flex-direction: column;
+      accent-color: var(--ds-primary);
+      caret-color: var(--ds-primary);
     }
+    ::selection { background: var(--ds-primary); color: var(--ds-text-on-primary); }
+    h1, h2, h3, h4 { line-height: var(--ds-line-height-heading); letter-spacing: var(--ds-letter-spacing-heading); }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    .skip-link {
+      position: absolute; left: var(--ds-space-4); top: -4rem; z-index: 10;
+      background: var(--ds-bg-page); color: var(--ds-text);
+      padding: var(--ds-space-3) var(--ds-space-5); border-radius: var(--ds-radius-pill);
+      border: var(--ds-border-2x) solid var(--ds-text); font-weight: 700;
+    }
+    .skip-link:focus { top: var(--ds-space-4); }
+    :where(a, button, input, summary, [tabindex]):focus-visible {
+      outline: var(--ds-focus-width) solid var(--ds-focus-color);
+      outline-offset: var(--ds-focus-offset);
+    }
+
     header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      padding: 0.85rem 1rem;
-      border-bottom: 1px solid var(--line);
-      background: #fff;
+      gap: var(--ds-space-4);
+      padding: var(--ds-space-4) var(--ds-gutter);
+      border-bottom: var(--ds-border-1x) solid var(--ds-border-divider);
+      background: var(--ds-bg-page);
     }
-    header h1 {
-      margin: 0;
-      font-size: 1.1rem;
-      font-weight: 650;
+    header h1 { margin: 0; font-size: var(--ds-text-2x); font-weight: 700; }
+    #status, #vstatus { font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
+    #status::before, #vstatus::before {
+      content: ""; display: inline-block; width: 0.625rem; height: 0.625rem;
+      border-radius: 50%; margin-right: var(--ds-space-2); background: var(--ds-border-control);
+      vertical-align: baseline;
     }
-    #status { font-size: 0.85rem; color: var(--muted); }
-    #status.ok { color: var(--done); }
-    #status.bad { color: #9b2c2c; }
-    #log {
-      flex: 1;
-      overflow: auto;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
+    #vstatus:empty { display: none; }
+    #status.ok::before, #vstatus.ok::before { background: var(--ds-status-success); }
+    #status.bad, #vstatus.bad { color: var(--ds-text-error); font-weight: 700; }
+    #status.bad::before, #vstatus.bad::before { background: var(--ds-status-error); }
+
+    .header-tools { display: flex; align-items: center; gap: var(--ds-space-5); flex-wrap: wrap; justify-content: flex-end; }
+    button.switch {
+      background: transparent; color: var(--ds-text); border-color: transparent; padding-inline: var(--ds-space-2);
+      min-height: var(--ds-size-s); gap: var(--ds-space-3); font-size: var(--ds-text-m); box-shadow: none;
+    }
+    button.switch:hover:not(:disabled) { background: var(--ds-bg-subtle); color: var(--ds-text); border-color: transparent; box-shadow: none; }
+    button.switch:active:not(:disabled) { background: var(--ds-bg-muted); color: var(--ds-text); border-color: transparent; }
+    .switch-track {
+      position: relative; flex: none; width: 3rem; height: 1.75rem; border-radius: var(--ds-radius-pill);
+      border: var(--ds-border-2x) solid var(--ds-border-control); background: var(--ds-bg-subtle);
+      transition: background-color var(--ds-duration-base) ease-out, border-color var(--ds-duration-base) ease-out;
+    }
+    .switch-knob {
+      position: absolute; top: 50%; left: 0.1875rem; width: 1.125rem; height: 1.125rem; border-radius: 50%;
+      background: var(--ds-text); transform: translateY(-50%);
+      transition: transform var(--ds-duration-base) ease-out, background-color var(--ds-duration-base) ease-out;
+    }
+    button.switch[data-dark="true"] .switch-track { background: var(--ds-primary); border-color: var(--ds-primary); }
+    button.switch[data-dark="true"] .switch-knob { transform: translate(1.1875rem, -50%); background: var(--ds-text-on-primary); }
+
+    /* ---- Buttons: pill, 2px border, SBB sizes (m 48px default, l 56px) ---- */
+    button {
+      display: inline-flex; align-items: center; justify-content: center; gap: var(--ds-space-2);
+      min-height: var(--ds-size-m);
+      padding: var(--ds-space-1) var(--ds-space-5);
+      border: var(--ds-border-2x) solid var(--ds-primary);
+      border-radius: var(--ds-radius-pill);
+      background: var(--ds-primary);
+      color: var(--ds-text-on-primary);
+      font: inherit; font-weight: 700; letter-spacing: inherit; line-height: 1.4;
+      cursor: pointer;
+      transition: background-color var(--ds-duration-base) ease-out, border-color var(--ds-duration-base) ease-out, box-shadow var(--ds-duration-base) ease-out;
+    }
+    button:hover:not(:disabled) { background: var(--ds-primary-hover); border-color: var(--ds-primary-hover); box-shadow: var(--ds-shadow-3); }
+    button:active:not(:disabled) { background: var(--ds-primary-active); border-color: var(--ds-primary-active); }
+    button:disabled {
+      background: var(--ds-bg-subtle); color: var(--ds-text-disabled);
+      border: var(--ds-border-1x) dashed var(--ds-border-control); cursor: not-allowed;
+    }
+    button.secondary {
+      background: var(--ds-bg-page); color: var(--ds-text); border-color: var(--ds-border-control);
+    }
+    button.secondary:hover:not(:disabled) { background: var(--ds-bg-muted); border-color: var(--ds-text); box-shadow: none; }
+    button.secondary:active:not(:disabled) { background: var(--ds-bg-muted); }
+
+    /* ---- Chat ---- */
+    #log, #vlog {
+      flex: 1; overflow: auto;
+      padding: var(--ds-space-4) var(--ds-gutter);
+      display: flex; flex-direction: column; gap: var(--ds-space-4);
     }
     .msg {
-      max-width: 42rem;
-      padding: 0.7rem 0.85rem;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      line-height: 1.4;
+      max-width: var(--ds-measure);
+      padding: var(--ds-space-3) var(--ds-space-5);
+      border-radius: var(--ds-radius-6x);
+      white-space: pre-wrap; word-break: break-word;
     }
-    .msg.user { align-self: flex-end; background: var(--user); }
-    .msg.assistant { align-self: flex-start; background: var(--bot); }
+    .msg.user { align-self: flex-end; background: var(--ds-bg-muted); }
+    .msg.assistant { align-self: flex-start; background: var(--ds-bg-page); border: var(--ds-border-2x) solid var(--ds-border-divider); }
     .msg.assistant code {
-      font-family: var(--mono);
-      font-size: 0.85em;
-      background: #f0ede7;
-      padding: 0.05rem 0.25rem;
-      border-radius: 4px;
+      font-family: var(--ds-font-mono); font-size: var(--ds-text-m);
+      background: var(--ds-bg-subtle); padding: 0 var(--ds-space-1); border-radius: var(--ds-radius-2x);
     }
     .msg.meta {
-      align-self: center;
-      border: 0;
-      background: transparent;
-      color: var(--muted);
-      font-size: 0.85rem;
-      padding: 0.2rem;
+      align-self: center; border: 0; background: transparent;
+      color: var(--ds-text-secondary); font-size: var(--ds-text-m); padding: var(--ds-space-1);
     }
-    .thinking {
-      align-self: flex-start;
-      color: var(--muted);
-      font-size: 0.85rem;
-      padding: 0 0.2rem;
-    }
+    .msg.user.pending { font-style: italic; }
+    .thinking { align-self: flex-start; color: var(--ds-text-secondary); font-size: var(--ds-text-m); padding: 0 var(--ds-space-1); }
+    .turn { display: flex; flex-direction: column; gap: var(--ds-space-4); }
+
     details.tools {
-      align-self: flex-start;
-      width: min(42rem, 100%);
-      border: 1px dashed var(--line);
-      border-radius: 10px;
-      background: var(--tool);
+      align-self: flex-start; width: min(var(--ds-measure), 100%);
+      border: var(--ds-border-2x) solid var(--ds-border-divider);
+      border-radius: var(--ds-radius-4x); background: var(--ds-bg-subtle);
     }
     details.tools > summary {
-      cursor: pointer;
-      padding: 0.45rem 0.75rem;
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      color: var(--done);
-      list-style: none;
-      user-select: none;
+      cursor: pointer; padding: var(--ds-space-2) var(--ds-space-4);
+      min-height: var(--ds-size-s); display: flex; align-items: center;
+      font-size: var(--ds-text-m); font-weight: 700; color: var(--ds-text);
+      list-style: none; user-select: none;
     }
     details.tools > summary::-webkit-details-marker { display: none; }
-    details.tools > summary::before { content: "▸ "; color: var(--muted); }
-    details.tools[open] > summary::before { content: "▾ "; }
-    details.tools.running > summary { color: var(--running); }
-    .tool-entry { border-top: 1px solid var(--line); padding: 0.5rem 0.75rem; }
-    .tool-entry .name {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-bottom: 0.3rem;
-    }
-    .tool-entry .label {
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--muted);
-      margin: 0.35rem 0 0.15rem;
-    }
+    details.tools > summary::before { content: "▸"; margin-right: var(--ds-space-2); color: var(--ds-text-secondary); }
+    details.tools[open] > summary::before { content: "▾"; }
+    details.tools.running > summary { color: var(--ds-text); }
+    .tool-entry { border-top: var(--ds-border-1x) solid var(--ds-border-divider); padding: var(--ds-space-3) var(--ds-space-4); }
+    .tool-entry .name { font-family: var(--ds-font-mono); font-size: var(--ds-text-m); font-weight: 700; margin-bottom: var(--ds-space-1); }
+    .tool-entry .label { font-size: var(--ds-text-m); font-weight: 700; color: var(--ds-text-secondary); margin: var(--ds-space-2) 0 var(--ds-space-1); }
     .tool-entry pre {
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font: 0.78rem/1.35 var(--mono);
-      max-height: 18rem;
-      overflow: auto;
+      margin: 0; white-space: pre-wrap; word-break: break-word;
+      font: var(--ds-text-m)/1.5 var(--ds-font-mono); max-height: 18rem; overflow: auto;
     }
-    form {
-      display: flex;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      border-top: 1px solid var(--line);
-      background: #fff;
-    }
-    input[type="text"] {
-      flex: 1;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 0.7rem 0.8rem;
-      font: inherit;
-    }
-    button {
-      border: 0;
-      border-radius: 8px;
-      padding: 0.7rem 1rem;
-      font: inherit;
-      font-weight: 600;
-      background: var(--accent);
-      color: #fff;
-      cursor: pointer;
-    }
-    button:disabled { opacity: 0.5; cursor: wait; }
 
+    form {
+      display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ds-space-2) var(--ds-space-3);
+      padding: var(--ds-space-4) var(--ds-gutter);
+      border-top: var(--ds-border-1x) solid var(--ds-border-divider);
+      background: var(--ds-bg-page);
+    }
+    .field { flex: 1; min-width: 12rem; display: flex; flex-direction: column; gap: var(--ds-space-1); }
+    .field label { font-weight: 700; font-size: var(--ds-text-m); }
+    input[type="text"] {
+      width: 100%; min-height: var(--ds-size-m);
+      border: var(--ds-border-1x) solid var(--ds-border-control);
+      border-radius: var(--ds-radius-4x);
+      padding: var(--ds-space-2) var(--ds-space-3);
+      background: var(--ds-bg-page); color: var(--ds-text);
+      font: inherit; letter-spacing: inherit;
+    }
+    input[type="text"]::placeholder { color: var(--ds-text-secondary); opacity: 1; }
+    input[type="text"]:hover { border-color: var(--ds-text); }
+    #send { min-height: var(--ds-size-l); padding-inline: var(--ds-space-8); }
+
+    /* ---- Shell ---- */
     .layout {
-      flex: 1;
-      min-height: 0;
-      display: grid;
-      grid-template-columns: 15rem minmax(0, 1fr) minmax(22rem, 30rem);
+      flex: 1; min-height: 0; display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr) minmax(24rem, 32rem);
     }
     aside#connectors {
-      border-right: 1px solid var(--line);
-      background: #fff;
-      padding: 0.85rem;
-      overflow: auto;
+      border-right: var(--ds-border-1x) solid var(--ds-border-divider);
+      background: var(--ds-bg-subtle);
+      padding: var(--ds-space-4); overflow: auto;
     }
-    aside#connectors h2, #panels h2.empty-title {
-      margin: 0 0 0.6rem;
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-    }
+    aside#connectors h2, #panels h2.empty-title { margin: 0 0 var(--ds-space-3); font-size: var(--ds-text-xl); font-weight: 700; }
     .connector {
-      display: block;
-      width: 100%;
-      text-align: left;
-      background: var(--bg);
-      color: var(--ink);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 0.6rem 0.7rem;
-      margin-bottom: 0.55rem;
-      font-weight: 500;
+      display: block; width: 100%; text-align: left; justify-content: flex-start;
+      background: var(--ds-bg-page); color: var(--ds-text);
+      border: var(--ds-border-2x) solid var(--ds-border-divider);
+      border-radius: var(--ds-radius-4x);
+      padding: var(--ds-space-3) var(--ds-space-4); margin-bottom: var(--ds-space-3);
+      font-weight: 400;
     }
-    .connector.open { border-color: var(--ink); background: #fff; }
-    .connector .cname { font-weight: 650; display: flex; align-items: center; gap: 0.4rem; }
-    .connector .cdesc { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; font-weight: 400; }
-    .dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--line); display: inline-block; }
-    .dot.live { background: var(--done); }
-    .dot.mock { background: var(--running); }
-    .dot.error { background: #9b2c2c; }
-    #panels { overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-    .empty { color: var(--muted); font-size: 0.9rem; max-width: 30rem; line-height: 1.5; }
-    .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-    .panel-head {
-      display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
-      padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--line);
-    }
-    .panel-head h3 { margin: 0; font-size: 1rem; }
-    .badge {
-      font-size: 0.7rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em;
-      padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
-    }
-    .badge.live { color: var(--done); border-color: var(--done); }
-    .badge.mock { color: var(--running); border-color: var(--running); }
-    .badge.error { color: #9b2c2c; border-color: #9b2c2c; }
-    .panel-head .spacer { flex: 1; }
-    .panel-head button { padding: 0.3rem 0.6rem; font-size: 0.8rem; background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
-    .panel-summary { padding: 0.7rem 0.9rem 0; font-size: 0.9rem; }
-    .panel-source { padding: 0.2rem 0.9rem 0.5rem; font-size: 0.75rem; color: var(--muted); }
-    .panel-body { padding: 0 0.9rem 0.9rem; display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
-    .panel-body h4 { margin: 0 0 0.3rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    .tbl-wrap { overflow: auto; max-height: 16rem; border: 1px solid var(--line); border-radius: 8px; }
-    table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
-    th, td { text-align: left; padding: 0.35rem 0.55rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-    th { position: sticky; top: 0; background: var(--tool); font-weight: 600; }
-    tr:last-child td { border-bottom: 0; }
-    td.flag-H, td.flag-HH, td.flag-L, td.flag-LL { color: #9b2c2c; font-weight: 650; }
-    .loading { padding: 1rem; color: var(--muted); font-size: 0.9rem; }
-    section#chat { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); }
-    @media (max-width: 1000px) {
-      .layout { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(24rem, 1fr); overflow: auto; }
-      aside#connectors { border-right: 0; border-bottom: 1px solid var(--line); }
-      section#chat { border-left: 0; border-top: 1px solid var(--line); }
-    }
+    .connector:hover:not(:disabled) { background: var(--ds-bg-page); color: var(--ds-text); border-color: var(--ds-text); box-shadow: var(--ds-shadow-3); }
+    .connector:active:not(:disabled) { background: var(--ds-bg-muted); color: var(--ds-text); border-color: var(--ds-text); }
+    .connector.open { border-color: var(--ds-primary); border-width: var(--ds-border-3x); padding: calc(var(--ds-space-3) - 0.0625rem) calc(var(--ds-space-4) - 0.0625rem); }
+    .connector .cname { font-weight: 700; display: flex; align-items: center; gap: var(--ds-space-2); }
+    .connector .cdesc { font-size: var(--ds-text-m); color: var(--ds-text-secondary); margin-top: var(--ds-space-1); }
+    .connector .cstate { font-size: var(--ds-text-m); font-weight: 700; margin-top: var(--ds-space-1); }
+    .connector-add-note { font-size: var(--ds-text-m); color: var(--ds-text-secondary); margin-top: var(--ds-space-3); }
+    .dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--ds-border-control); display: inline-block; flex: none; }
+    .dot.live { background: var(--ds-status-success); }
+    .dot.mock { background: var(--ds-status-warn); }
+    .dot.error { background: var(--ds-status-error); }
 
-    .tabs { display: flex; border-bottom: 1px solid var(--line); background: #fff; }
-    .tabs button {
-      flex: 1; border-radius: 0; background: transparent; color: var(--muted);
-      border-bottom: 2px solid transparent; padding: 0.6rem 0.8rem;
+    #panels { overflow: auto; padding: var(--ds-space-4) var(--ds-gutter); display: flex; flex-direction: column; gap: var(--ds-gutter); min-width: 0; }
+    #widgets { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--ds-gutter); }
+    .widget { background: var(--ds-bg-subtle); border-radius: var(--ds-radius-4x); padding: var(--ds-space-4) var(--ds-space-5); }
+    .widget .wlabel { font-size: var(--ds-text-m); font-weight: 700; color: var(--ds-text-secondary); }
+    .widget .wvalue { font-size: var(--ds-text-3x); font-weight: 700; line-height: var(--ds-line-height-heading); font-variant-numeric: tabular-nums; }
+    .widget .wsub { font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
+    .empty { color: var(--ds-text-secondary); max-width: var(--ds-measure); }
+    .empty strong { color: var(--ds-text); }
+    .panel { background: var(--ds-bg-page); border: var(--ds-border-2x) solid var(--ds-border-divider); border-radius: var(--ds-radius-4x); overflow: hidden; }
+    .panel-head {
+      display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap;
+      padding: var(--ds-space-3) var(--ds-space-4); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider);
     }
-    .tabs button.active { color: var(--ink); border-bottom-color: var(--ink); }
+    .panel-head h3 { margin: 0; font-size: var(--ds-text-xl); }
+    .panel-head .spacer { flex: 1; }
+    .panel-head button { min-height: var(--ds-size-s); padding-inline: var(--ds-space-4); background: var(--ds-bg-page); color: var(--ds-text); border-color: var(--ds-border-control); }
+    .panel-head button:hover:not(:disabled) { background: var(--ds-bg-muted); border-color: var(--ds-text); box-shadow: none; color: var(--ds-text); }
+    .badge {
+      font-size: var(--ds-text-m); font-weight: 700; padding: 0 var(--ds-space-3);
+      border-radius: var(--ds-radius-2x); border: var(--ds-border-1x) solid var(--ds-border-control);
+      color: var(--ds-text); background: var(--ds-bg-subtle);
+    }
+    .badge.live { border-color: var(--ds-status-success); }
+    .badge.mock { border-color: var(--ds-status-warn); background: var(--ds-bg-warn); }
+    .badge.error { border-color: var(--ds-status-error); color: var(--ds-text-error); background: var(--ds-bg-page); }
+    .panel-summary { padding: var(--ds-space-3) var(--ds-space-4) 0; }
+    .panel-source { padding: var(--ds-space-1) var(--ds-space-4) var(--ds-space-2); font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
+    .panel-body { padding: 0 var(--ds-space-4) var(--ds-space-4); display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
+    .panel-body h4 { margin: 0 0 var(--ds-space-1); font-size: var(--ds-text-l); }
+    .tbl-wrap { overflow: auto; max-height: 18rem; border: var(--ds-border-1x) solid var(--ds-border-control); border-radius: var(--ds-radius-4x); }
+    table { border-collapse: collapse; width: 100%; font-size: var(--ds-text-m); line-height: 1.5; }
+    th, td { text-align: left; padding: var(--ds-space-2) var(--ds-space-3); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); vertical-align: top; }
+    th { position: sticky; top: 0; background: var(--ds-bg-subtle); font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+    td.flag-H, td.flag-HH, td.flag-L, td.flag-LL { color: var(--ds-text-error); font-weight: 700; }
+    .loading { padding: var(--ds-space-4); color: var(--ds-text-secondary); }
+
+    section#chat { display: flex; flex-direction: column; min-height: 0; border-left: var(--ds-border-1x) solid var(--ds-border-divider); }
+    .tabs { display: flex; border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); background: var(--ds-bg-page); }
+    .tabs button {
+      flex: 1; min-height: var(--ds-size-l); border-radius: 0; background: transparent; color: var(--ds-text-secondary);
+      border: 0; border-bottom: var(--ds-border-4x) solid transparent; box-shadow: none;
+    }
+    .tabs button:hover:not(:disabled) { background: var(--ds-bg-subtle); color: var(--ds-text); box-shadow: none; border-color: transparent; border-bottom-color: var(--ds-bg-muted); }
+    .tabs button.active { color: var(--ds-text); border-bottom-color: var(--ds-primary); }
     .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     .view[hidden] { display: none; }
-    #vlog { flex: 1; overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.65rem; }
-    .msg.user.pending { color: var(--muted); }
-    .turn { display: flex; flex-direction: column; gap: 0.65rem; }
     #voice-foot {
-      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
-      padding: 1rem; border-top: 1px solid var(--line); background: #fff;
+      display: flex; flex-direction: column; align-items: center; gap: var(--ds-space-2);
+      padding: var(--ds-space-6) var(--ds-gutter); border-top: var(--ds-border-1x) solid var(--ds-border-divider); background: var(--ds-bg-page);
     }
-    #talk {
-      width: 6rem; height: 6rem; border-radius: 50%; padding: 0;
-      font-weight: 700; touch-action: none; user-select: none;
+    #talk { width: var(--ds-size-xl); height: var(--ds-size-xl); border-radius: 50%; padding: 0; touch-action: none; user-select: none; }
+    #talk.recording { background: var(--ds-text); border-color: var(--ds-text); }
+    #hint { color: var(--ds-text-secondary); font-size: var(--ds-text-m); text-align: center; }
+
+    @media (max-width: 63.9375rem) {
+      /* Single column: the page scrolls instead of squeezing each region. */
+      html, body { height: auto; min-height: 100%; }
+      .layout { display: flex; flex-direction: column; overflow: visible; }
+      aside#connectors { border-right: 0; border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); overflow: visible; }
+      #panels { overflow: visible; }
+      section#chat { border-left: 0; border-top: var(--ds-border-1x) solid var(--ds-border-divider); min-height: 36rem; }
+      #log, #vlog { max-height: 32rem; }
     }
-    #talk:disabled { opacity: 0.4; cursor: wait; }
-    #talk.recording { background: #9b2c2c; }
-    #hint, #vstatus { color: var(--muted); font-size: 0.85rem; }
-    #vstatus.ok { color: var(--done); }
-    #vstatus.bad { color: #9b2c2c; }
+    @media (max-width: 37.4375rem) {
+      .field { flex-basis: 100%; }
+      #send { flex: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    }
+    @media (forced-colors: active) {
+      button { border: var(--ds-border-2x) solid ButtonText; }
+      .connector.open { outline: var(--ds-border-3x) solid Highlight; }
+    }
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#panels">Skip to dashboard</a>
   <header>
     <h1>Claw dashboard</h1>
-    <span id="status">connecting…</span>
+    <div class="header-tools">
+      <button id="theme-switch" class="switch" type="button" data-dark="false"><span class="switch-label" id="theme-switch-label">Dark mode</span><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></button>
+      <span id="status" role="status">Connecting…</span>
+    </div>
   </header>
   <div class="layout">
-    <aside id="connectors">
-      <h2>Connectors</h2>
+    <aside id="connectors" aria-labelledby="connectors-title">
+      <h2 id="connectors-title">Connectors</h2>
       <div id="connector-list"></div>
+      <button id="connector-add" class="secondary" type="button" aria-expanded="false" aria-controls="connector-add-note">Add a connector</button>
+      <div id="connector-add-note" class="connector-add-note" hidden>More connectors can be added here, such as email, fitness, or music. Ask the team to hook one up.</div>
     </aside>
     <main id="panels">
+      <div id="widgets">
+        <div class="widget">
+          <h2 class="wvalue">Hiya, Rishi</h2>
+        </div>
+        <div class="widget">
+          <div class="wlabel">Time</div>
+          <div class="wvalue" id="clock-time"></div>
+          <div class="wsub" id="clock-date"></div>
+        </div>
+      </div>
       <div id="empty" class="empty">
         <h2 class="empty-title">Dashboard</h2>
         Pick a connector on the left, or ask in the chat. Mention <strong>nessie</strong>
@@ -269,23 +316,26 @@
         up patient records from FinchNode.
       </div>
     </main>
-    <section id="chat">
-      <nav class="tabs">
-        <button type="button" id="tab-chat" class="active">Chat</button>
-        <button type="button" id="tab-voice">Voice</button>
-      </nav>
-      <div id="chat-view" class="view">
-        <div id="log"></div>
+    <section id="chat" aria-label="Chat and voice">
+      <div class="tabs" role="tablist" aria-label="How to talk to Claw">
+        <button type="button" id="tab-chat" role="tab" aria-selected="false" aria-controls="chat-view">Chat</button>
+        <button type="button" id="tab-voice" class="active" role="tab" aria-selected="true" aria-controls="voice-view">Voice</button>
+      </div>
+      <div id="chat-view" class="view" role="tabpanel" aria-labelledby="tab-chat" hidden>
+        <div id="log" role="log" aria-live="polite" aria-label="Conversation"></div>
         <form id="form">
-          <input id="input" type="text" placeholder="Message…" autocomplete="off" autofocus />
+          <div class="field">
+            <label for="input">Your message</label>
+            <input id="input" type="text" placeholder="What is on my calendar?" autocomplete="off" />
+          </div>
           <button id="send" type="submit" disabled>Send</button>
         </form>
       </div>
-      <div id="voice-view" class="view" hidden>
-        <div id="vlog"></div>
+      <div id="voice-view" class="view" role="tabpanel" aria-labelledby="tab-voice">
+        <div id="vlog" role="log" aria-live="polite" aria-label="Voice conversation"></div>
         <div id="voice-foot">
           <button id="talk" type="button" disabled>Hold to talk</button>
-          <span id="vstatus">not connected</span>
+          <span id="vstatus" role="status">Not connected</span>
           <span id="hint">Press and hold, speak, then release.</span>
           <audio id="player" style="display:none"></audio>
         </div>
@@ -359,7 +409,7 @@
       if (live) {
         turn.thinking = document.createElement("div");
         turn.thinking.className = "thinking";
-        turn.thinking.textContent = "thinking…";
+        turn.thinking.textContent = "Thinking…";
         log.appendChild(turn.thinking);
         scrollToEnd();
       }
@@ -388,7 +438,7 @@
 
     function groupTitle(entries) {
       const done = entries.every((e) => e.done);
-      const mark = done ? "✓" : "⚙";
+      const mark = done ? "Done:" : "Working:";
       const names = entries.map((e) => e.name);
       const counts = new Map();
       for (const n of names) counts.set(n, (counts.get(n) || 0) + 1);
@@ -415,7 +465,7 @@
       el.replaceChildren();
       const name = document.createElement("div");
       name.className = "name";
-      name.textContent = `${entry.done ? "✓" : "⚙"} ${entry.name}`;
+      name.textContent = `${entry.done ? "Done" : "Working"}: ${entry.name}`;
       el.appendChild(name);
       for (const [label, value] of [["args", entry.args], ["result", entry.result]]) {
         const body = pretty(value);
@@ -518,7 +568,12 @@
     const panelsEl = document.getElementById("panels");
     const emptyEl = document.getElementById("empty");
     const connectorState = new Map(); // id -> { meta, btn, dot, panel, loadedAt, loading }
-    const KEYWORDS = [[/\bnessie\b/i, "nessie"], [/\bhealth\b/i, "health"]];
+    const KEYWORDS = [[/\bnessie\b/i, "nessie"], [/\bhealth\b/i, "health"], [/\bcalendar\b/i, "calendar"]];
+
+    function formatWhen(iso) {
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? iso : d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    }
 
     function el(tag, cls, text) {
       const e = document.createElement(tag);
@@ -532,18 +587,20 @@
       panel.replaceChildren();
       const head = el("div", "panel-head");
       head.append(el("h3", "", data.name || state.meta.name));
-      head.append(el("span", `badge ${data.status === "error" ? "error" : "live"}`, data.status === "error" ? "error" : "connected"));
+      if (data.status === "error") head.append(el("span", "badge error", "Error"));
       head.append(el("span", "spacer"));
       const refresh = el("button", "", "Refresh");
       refresh.type = "button";
+      refresh.setAttribute("aria-label", `Refresh ${data.name || state.meta.name}`);
       refresh.onclick = () => openConnector(state.meta.id, { refresh: true });
       const close = el("button", "", "Close");
       close.type = "button";
+      close.setAttribute("aria-label", `Close ${data.name || state.meta.name}`);
       close.onclick = () => closeConnector(state.meta.id);
       head.append(refresh, close);
       panel.append(head);
       if (data.summary) panel.append(el("div", "panel-summary", data.summary));
-      const src = [data.source, data.fetchedAt && `updated ${data.fetchedAt}`].filter(Boolean);
+      const src = [data.source, data.fetchedAt && `Updated ${formatWhen(data.fetchedAt)}`].filter(Boolean);
       if (src.length) panel.append(el("div", "panel-source", src.join(" · ")));
       const body = el("div", "panel-body");
       for (const sec of data.sections || []) {
@@ -585,6 +642,7 @@
       if (!state) return;
       state.panel.remove();
       state.btn.classList.remove("open");
+      state.btn.setAttribute("aria-pressed", "false");
       syncEmpty();
     }
 
@@ -592,24 +650,44 @@
       const state = connectorState.get(id);
       if (!state || state.loading) return;
       const fresh = state.loadedAt && Date.now() - state.loadedAt < 5000;
-      if (!state.panel.isConnected) panelsEl.prepend(state.panel);
+      if (!state.panel.isConnected) panelsEl.append(state.panel);
       state.btn.classList.add("open");
+      state.btn.setAttribute("aria-pressed", "true");
       syncEmpty();
       if (fresh && !refresh) return;
       state.loading = true;
+      state.stateEl.textContent = "Loading…";
       state.panel.replaceChildren(el("div", "loading", `Loading ${state.meta.name}…`));
       try {
         const data = await call("connectors.fetch", { id });
         state.dot.className = `dot ${data.status === "error" ? "error" : "live"}`;
+        state.stateEl.textContent = data.status === "error" ? "Error" : "";
         state.loadedAt = Date.now();
         renderPanel(state, data);
       } catch (err) {
         state.dot.className = "dot error";
-        state.panel.replaceChildren(el("div", "loading", `Failed to load: ${err.message || err}`));
+        state.stateEl.textContent = "Error";
+        state.panel.replaceChildren(el("div", "loading", `Could not load ${state.meta.name}. Close it and open it again to retry. (${err.message || err})`));
       } finally {
         state.loading = false;
       }
     }
+
+    document.getElementById("connector-add").onclick = () => {
+      const note = document.getElementById("connector-add-note");
+      note.hidden = !note.hidden;
+      document.getElementById("connector-add").setAttribute("aria-expanded", String(!note.hidden));
+    };
+
+    const clockTime = document.getElementById("clock-time");
+    const clockDate = document.getElementById("clock-date");
+    function tickClock() {
+      const now = new Date();
+      clockTime.textContent = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      clockDate.textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
 
     async function loadConnectors() {
       try {
@@ -625,16 +703,18 @@
           const dot = el("span", "dot");
           const name = el("div", "cname");
           name.append(dot, document.createTextNode(meta.name));
-          btn.append(name, el("div", "cdesc", meta.description));
+          const stateEl = el("div", "cstate", "Not loaded yet");
+          btn.append(name, el("div", "cdesc", meta.description), stateEl);
+          btn.setAttribute("aria-pressed", "false");
           btn.onclick = () =>
             connectorState.get(meta.id).panel.isConnected
               ? closeConnector(meta.id)
               : openConnector(meta.id);
           connectorList.append(btn);
-          connectorState.set(meta.id, { meta, btn, dot, panel: el("div", "panel"), loadedAt: 0, loading: false });
+          connectorState.set(meta.id, { meta, btn, dot, stateEl, panel: el("div", "panel"), loadedAt: 0, loading: false });
         }
       } catch (err) {
-        connectorList.textContent = `connectors unavailable: ${err.message || err}`;
+        connectorList.textContent = `Connectors are unavailable. Reload the page to try again. (${err.message || err})`;
       }
     }
 
@@ -672,11 +752,11 @@
 
         if (frame.type === "res" && frame.id === connectId) {
           if (!frame.ok) {
-            setStatus("auth failed", "bad");
+            setStatus("Sign-in failed. Check the gateway token.", "bad");
             addMsg("meta", frame.error?.message || "connect failed");
             return;
           }
-          setStatus("connected", "ok");
+          setStatus("Connected", "ok");
           sendBtn.disabled = false;
           loadConnectors();
           if (!pending) historyId = req("chat.history", { sessionKey });
@@ -735,7 +815,7 @@
       ws.onclose = () => {
         for (const w of waiters.values()) w.reject(new Error("disconnected"));
         waiters.clear();
-        setStatus("disconnected — retrying…", "bad");
+        setStatus("Disconnected. Trying again…", "bad");
         sendBtn.disabled = true;
         if (pending) endTurn(pending.turn);
         pending = null;
@@ -743,7 +823,7 @@
       };
 
       ws.onerror = () => {
-        setStatus("connection error", "bad");
+        setStatus("Connection error. Check that Claw is running.", "bad");
       };
     }
 
@@ -774,12 +854,14 @@
       document.getElementById("voice-view").hidden = !voice;
       document.getElementById("tab-chat").classList.toggle("active", !voice);
       document.getElementById("tab-voice").classList.toggle("active", voice);
+      document.getElementById("tab-chat").setAttribute("aria-selected", String(!voice));
+      document.getElementById("tab-voice").setAttribute("aria-selected", String(voice));
       if (voice && window.clawVoiceStart) window.clawVoiceStart();
       else input.focus();
     }
     document.getElementById("tab-chat").onclick = () => showTab("chat");
     document.getElementById("tab-voice").onclick = () => showTab("voice");
-    if (location.hash === "#voice") showTab("voice");
+    if (location.hash === "#chat") showTab("chat");
   </script>
   <script>
     // Voice client (hold-to-talk over /ws/voice); starts when the Voice tab opens.
@@ -917,14 +999,14 @@
       ws.binaryType = "arraybuffer";
 
       ws.onopen = async () => {
-        setStatus("requesting microphone…");
+        setStatus("Requesting microphone…");
         try {
           ws.send(JSON.stringify({ type: "prewarm" }));
           if (!audioCtx) await setupRecorder();
-          setStatus("connected", "ok");
+          setStatus("", "ok");
           talkBtn.disabled = false;
         } catch (err) {
-          setStatus("microphone access denied", "bad");
+          setStatus("Microphone access denied. Allow it in your browser settings.", "bad");
           addMsg("meta", String(err));
         }
       };
@@ -972,7 +1054,7 @@
       };
 
       ws.onclose = () => {
-        setStatus("disconnected — retrying…", "bad");
+        setStatus("Disconnected. Trying again…", "bad");
         talkBtn.disabled = true;
         stopTalking();
         endUtterance();
@@ -980,7 +1062,7 @@
         setTimeout(connect, 1500);
       };
 
-      ws.onerror = () => setStatus("connection error", "bad");
+      ws.onerror = () => setStatus("Connection error. Check that Claw is running.", "bad");
     }
 
     function setUserText(id, text, pending) {
@@ -1054,7 +1136,7 @@
       } else {
         label = `${names.length} tools`;
       }
-      group.summary.textContent = `${done ? "✓" : "⚙"} ${label}`;
+      group.summary.textContent = `${done ? "Done:" : "Working:"} ${label}`;
       group.details.classList.toggle("running", !done);
     }
 
@@ -1063,7 +1145,7 @@
       el.replaceChildren();
       const name = document.createElement("div");
       name.className = "name";
-      name.textContent = `${entry.done ? "✓" : "⚙"} ${entry.name}`;
+      name.textContent = `${entry.done ? "Done" : "Working"}: ${entry.name}`;
       el.appendChild(name);
       for (const [label, value] of [["args", entry.args], ["result", entry.result]]) {
         const body = pretty(value);
@@ -1273,6 +1355,32 @@
       started = true;
       connect();
     };
+    })();
+  </script>
+  <script>
+    // Opens on the Voice tab (use /#chat for chat). Then: theme switch, which starts from the
+    // system setting and remembers an explicit choice.
+    if (location.hash !== "#chat" && window.clawVoiceStart) window.clawVoiceStart();
+    (() => {
+      const root = document.documentElement;
+      const btn = document.getElementById("theme-switch");
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : mq.matches);
+      // The label names the mode you will switch to; the knob shows the current one.
+      const label = document.getElementById("theme-switch-label");
+      const sync = () => {
+        const dark = isDark();
+        btn.dataset.dark = String(dark);
+        label.textContent = dark ? "Light mode" : "Dark mode";
+      };
+      btn.onclick = () => {
+        const next = isDark() ? "light" : "dark";
+        root.dataset.theme = next;
+        try { localStorage.setItem("claw-theme", next); } catch {}
+        sync();
+      };
+      mq.addEventListener("change", sync);
+      sync();
     })();
   </script>
 </body>

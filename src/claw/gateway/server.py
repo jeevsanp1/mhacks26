@@ -20,6 +20,7 @@ from fastapi.responses import (
     RedirectResponse,
     StreamingResponse,
 )
+from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketState
 
 from claw.channels.dispatch import start_inbound
@@ -137,6 +138,7 @@ def create_app(
         unsub()
 
     app = FastAPI(title="claw gateway", lifespan=lifespan)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/", response_class=HTMLResponse)
     async def chat() -> FileResponse:
