@@ -13,7 +13,13 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from starlette.websockets import WebSocketState
 
 from claw.channels.dispatch import start_inbound
@@ -26,6 +32,7 @@ from claw.channels.voice import (
     WaitFiller,
     pcm16_to_wav,
 )
+from claw import connectors
 from claw.config import Settings, get_settings
 from claw.events import AgentEvent
 from claw.gateway import methods, protocol
@@ -137,13 +144,10 @@ def create_app(
         path = STATIC_DIR / "dashboard.html"
         return FileResponse(path, media_type="text/html; charset=utf-8")
 
-    @app.get("/voice", response_class=HTMLResponse)
-    async def voice_page() -> FileResponse:
-        """Push-to-talk voice prototype over /ws/voice."""
-        path = STATIC_DIR / "voice.html"
-        return FileResponse(
-            path, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-store"}
-        )
+    @app.get("/voice")
+    async def voice_page() -> RedirectResponse:
+        """Voice lives in the dashboard's Voice tab now."""
+        return RedirectResponse("/#voice")
 
     @app.get("/health")
     async def http_health() -> dict[str, Any]:
@@ -364,6 +368,17 @@ def create_app(
                     elif method == "chat.history":
                         payload = methods.handle_chat_history(params, runner=app.state.runner)
                         await conn.send(protocol.res_ok(req_id, payload))
+                    elif method == "connectors.list":
+                        await conn.send(
+                            protocol.res_ok(req_id, {"connectors": connectors.list_connectors()})
+                        )
+                    elif method == "connectors.fetch":
+                        panel = await asyncio.to_thread(
+                            connectors.fetch_connector,
+                            str(params.get("id") or ""),
+                            app.state.settings,
+                        )
+                        await conn.send(protocol.res_ok(req_id, panel))
                     elif method == "agent.wait":
                         payload = await methods.handle_agent_wait(
                             params, runner=app.state.runner

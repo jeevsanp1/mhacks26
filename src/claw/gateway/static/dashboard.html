@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Claw chat</title>
+  <title>Claw dashboard</title>
   <style>
     :root {
       --bg: #f4f2ee;
@@ -151,18 +151,147 @@
       cursor: pointer;
     }
     button:disabled { opacity: 0.5; cursor: wait; }
+
+    .layout {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 15rem minmax(0, 1fr) minmax(22rem, 30rem);
+    }
+    aside#connectors {
+      border-right: 1px solid var(--line);
+      background: #fff;
+      padding: 0.85rem;
+      overflow: auto;
+    }
+    aside#connectors h2, #panels h2.empty-title {
+      margin: 0 0 0.6rem;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .connector {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: var(--bg);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.6rem 0.7rem;
+      margin-bottom: 0.55rem;
+      font-weight: 500;
+    }
+    .connector.open { border-color: var(--ink); background: #fff; }
+    .connector .cname { font-weight: 650; display: flex; align-items: center; gap: 0.4rem; }
+    .connector .cdesc { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; font-weight: 400; }
+    .dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--line); display: inline-block; }
+    .dot.live { background: var(--done); }
+    .dot.mock { background: var(--running); }
+    .dot.error { background: #9b2c2c; }
+    #panels { overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+    .empty { color: var(--muted); font-size: 0.9rem; max-width: 30rem; line-height: 1.5; }
+    .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .panel-head {
+      display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+      padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--line);
+    }
+    .panel-head h3 { margin: 0; font-size: 1rem; }
+    .badge {
+      font-size: 0.7rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+    }
+    .badge.live { color: var(--done); border-color: var(--done); }
+    .badge.mock { color: var(--running); border-color: var(--running); }
+    .badge.error { color: #9b2c2c; border-color: #9b2c2c; }
+    .panel-head .spacer { flex: 1; }
+    .panel-head button { padding: 0.3rem 0.6rem; font-size: 0.8rem; background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+    .panel-summary { padding: 0.7rem 0.9rem 0; font-size: 0.9rem; }
+    .panel-source { padding: 0.2rem 0.9rem 0.5rem; font-size: 0.75rem; color: var(--muted); }
+    .panel-body { padding: 0 0.9rem 0.9rem; display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
+    .panel-body h4 { margin: 0 0 0.3rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .tbl-wrap { overflow: auto; max-height: 16rem; border: 1px solid var(--line); border-radius: 8px; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+    th, td { text-align: left; padding: 0.35rem 0.55rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { position: sticky; top: 0; background: var(--tool); font-weight: 600; }
+    tr:last-child td { border-bottom: 0; }
+    td.flag-H, td.flag-HH, td.flag-L, td.flag-LL { color: #9b2c2c; font-weight: 650; }
+    .loading { padding: 1rem; color: var(--muted); font-size: 0.9rem; }
+    section#chat { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(24rem, 1fr); overflow: auto; }
+      aside#connectors { border-right: 0; border-bottom: 1px solid var(--line); }
+      section#chat { border-left: 0; border-top: 1px solid var(--line); }
+    }
+
+    .tabs { display: flex; border-bottom: 1px solid var(--line); background: #fff; }
+    .tabs button {
+      flex: 1; border-radius: 0; background: transparent; color: var(--muted);
+      border-bottom: 2px solid transparent; padding: 0.6rem 0.8rem;
+    }
+    .tabs button.active { color: var(--ink); border-bottom-color: var(--ink); }
+    .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .view[hidden] { display: none; }
+    #vlog { flex: 1; overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.65rem; }
+    .msg.user.pending { color: var(--muted); }
+    .turn { display: flex; flex-direction: column; gap: 0.65rem; }
+    #voice-foot {
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+      padding: 1rem; border-top: 1px solid var(--line); background: #fff;
+    }
+    #talk {
+      width: 6rem; height: 6rem; border-radius: 50%; padding: 0;
+      font-weight: 700; touch-action: none; user-select: none;
+    }
+    #talk:disabled { opacity: 0.4; cursor: wait; }
+    #talk.recording { background: #9b2c2c; }
+    #hint, #vstatus { color: var(--muted); font-size: 0.85rem; }
+    #vstatus.ok { color: var(--done); }
+    #vstatus.bad { color: #9b2c2c; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Claw</h1>
+    <h1>Claw dashboard</h1>
     <span id="status">connecting…</span>
   </header>
-  <div id="log"></div>
-  <form id="form">
-    <input id="input" type="text" placeholder="Message…" autocomplete="off" autofocus />
-    <button id="send" type="submit" disabled>Send</button>
-  </form>
+  <div class="layout">
+    <aside id="connectors">
+      <h2>Connectors</h2>
+      <div id="connector-list"></div>
+    </aside>
+    <main id="panels">
+      <div id="empty" class="empty">
+        <h2 class="empty-title">Dashboard</h2>
+        Pick a connector on the left, or ask in the chat. Mention <strong>nessie</strong>
+        to pull up the Capital One mock banking data, or <strong>health</strong> to pull
+        up patient records from FinchNode.
+      </div>
+    </main>
+    <section id="chat">
+      <nav class="tabs">
+        <button type="button" id="tab-chat" class="active">Chat</button>
+        <button type="button" id="tab-voice">Voice</button>
+      </nav>
+      <div id="chat-view" class="view">
+        <div id="log"></div>
+        <form id="form">
+          <input id="input" type="text" placeholder="Message…" autocomplete="off" autofocus />
+          <button id="send" type="submit" disabled>Send</button>
+        </form>
+      </div>
+      <div id="voice-view" class="view" hidden>
+        <div id="vlog"></div>
+        <div id="voice-foot">
+          <button id="talk" type="button" disabled>Hold to talk</button>
+          <span id="vstatus">not connected</span>
+          <span id="hint">Press and hold, speak, then release.</span>
+          <audio id="player" style="display:none"></audio>
+        </div>
+      </div>
+    </section>
+  </div>
   <script>
     const log = document.getElementById("log");
     const statusEl = document.getElementById("status");
@@ -339,7 +468,10 @@
         appendText(turn, data.delta);
       } else if (p.stream === "tool") {
         const info = { id: data.toolCallId, name: data.toolName, args: data.args, result: data.result };
-        if (data.phase === "call") addTool(turn, info);
+        if (data.phase === "call") {
+          addTool(turn, info);
+          if (connectorState.has(data.toolName)) openConnector(data.toolName);
+        }
         else if (data.phase === "result") finishTool(turn, info);
       }
     }
@@ -372,6 +504,140 @@
       return id;
     }
 
+    // Promise-style request for dashboard calls (chat keeps its own id tracking).
+    const waiters = new Map();
+    function call(method, params) {
+      return new Promise((resolve, reject) => {
+        const id = req(method, params);
+        waiters.set(id, { resolve, reject });
+      });
+    }
+
+    // ---- connectors dashboard ----
+    const connectorList = document.getElementById("connector-list");
+    const panelsEl = document.getElementById("panels");
+    const emptyEl = document.getElementById("empty");
+    const connectorState = new Map(); // id -> { meta, btn, dot, panel, loadedAt, loading }
+    const KEYWORDS = [[/\bnessie\b/i, "nessie"], [/\bhealth\b/i, "health"]];
+
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    function renderPanel(state, data) {
+      const panel = state.panel;
+      panel.replaceChildren();
+      const head = el("div", "panel-head");
+      head.append(el("h3", "", data.name || state.meta.name));
+      head.append(el("span", `badge ${data.status === "error" ? "error" : "live"}`, data.status === "error" ? "error" : "connected"));
+      head.append(el("span", "spacer"));
+      const refresh = el("button", "", "Refresh");
+      refresh.type = "button";
+      refresh.onclick = () => openConnector(state.meta.id, { refresh: true });
+      const close = el("button", "", "Close");
+      close.type = "button";
+      close.onclick = () => closeConnector(state.meta.id);
+      head.append(refresh, close);
+      panel.append(head);
+      if (data.summary) panel.append(el("div", "panel-summary", data.summary));
+      const src = [data.source, data.fetchedAt && `updated ${data.fetchedAt}`].filter(Boolean);
+      if (src.length) panel.append(el("div", "panel-source", src.join(" · ")));
+      const body = el("div", "panel-body");
+      for (const sec of data.sections || []) {
+        if (!sec.rows.length) continue;
+        const box = el("div", "section");
+        box.append(el("h4", "", sec.title));
+        const wrap = el("div", "tbl-wrap");
+        const table = el("table");
+        const tr = el("tr");
+        for (const c of sec.columns) tr.append(el("th", "", c));
+        const thead = el("thead");
+        thead.append(tr);
+        table.append(thead);
+        const tbody = el("tbody");
+        const flagCol = sec.columns.indexOf("Flag");
+        for (const row of sec.rows) {
+          const r = el("tr");
+          row.forEach((cell, i) => {
+            const td = el("td", i === flagCol ? `flag-${cell}` : "", cell === null || cell === undefined ? "" : String(cell));
+            r.append(td);
+          });
+          tbody.append(r);
+        }
+        table.append(tbody);
+        wrap.append(table);
+        box.append(wrap);
+        body.append(box);
+      }
+      panel.append(body);
+    }
+
+    function syncEmpty() {
+      const anyOpen = [...connectorState.values()].some((s) => s.panel.isConnected);
+      emptyEl.style.display = anyOpen ? "none" : "";
+    }
+
+    function closeConnector(id) {
+      const state = connectorState.get(id);
+      if (!state) return;
+      state.panel.remove();
+      state.btn.classList.remove("open");
+      syncEmpty();
+    }
+
+    async function openConnector(id, { refresh = false } = {}) {
+      const state = connectorState.get(id);
+      if (!state || state.loading) return;
+      const fresh = state.loadedAt && Date.now() - state.loadedAt < 5000;
+      if (!state.panel.isConnected) panelsEl.prepend(state.panel);
+      state.btn.classList.add("open");
+      syncEmpty();
+      if (fresh && !refresh) return;
+      state.loading = true;
+      state.panel.replaceChildren(el("div", "loading", `Loading ${state.meta.name}…`));
+      try {
+        const data = await call("connectors.fetch", { id });
+        state.dot.className = `dot ${data.status === "error" ? "error" : "live"}`;
+        state.loadedAt = Date.now();
+        renderPanel(state, data);
+      } catch (err) {
+        state.dot.className = "dot error";
+        state.panel.replaceChildren(el("div", "loading", `Failed to load: ${err.message || err}`));
+      } finally {
+        state.loading = false;
+      }
+    }
+
+    async function loadConnectors() {
+      try {
+        const { connectors } = await call("connectors.list", {});
+        connectorList.replaceChildren();
+        for (const meta of connectors) {
+          if (connectorState.has(meta.id)) {
+            connectorList.append(connectorState.get(meta.id).btn);
+            continue;
+          }
+          const btn = el("button", "connector");
+          btn.type = "button";
+          const dot = el("span", "dot");
+          const name = el("div", "cname");
+          name.append(dot, document.createTextNode(meta.name));
+          btn.append(name, el("div", "cdesc", meta.description));
+          btn.onclick = () =>
+            connectorState.get(meta.id).panel.isConnected
+              ? closeConnector(meta.id)
+              : openConnector(meta.id);
+          connectorList.append(btn);
+          connectorState.set(meta.id, { meta, btn, dot, panel: el("div", "panel"), loadedAt: 0, loading: false });
+        }
+      } catch (err) {
+        connectorList.textContent = `connectors unavailable: ${err.message || err}`;
+      }
+    }
+
     function finishPending() {
       if (pending) endTurn(pending.turn);
       pending = null;
@@ -396,6 +662,14 @@
         let frame;
         try { frame = JSON.parse(ev.data); } catch { return; }
 
+        if (frame.type === "res" && waiters.has(frame.id)) {
+          const w = waiters.get(frame.id);
+          waiters.delete(frame.id);
+          if (frame.ok) w.resolve(frame.payload);
+          else w.reject(new Error(frame.error?.message || "request failed"));
+          return;
+        }
+
         if (frame.type === "res" && frame.id === connectId) {
           if (!frame.ok) {
             setStatus("auth failed", "bad");
@@ -404,6 +678,7 @@
           }
           setStatus("connected", "ok");
           sendBtn.disabled = false;
+          loadConnectors();
           if (!pending) historyId = req("chat.history", { sessionKey });
           return;
         }
@@ -458,6 +733,8 @@
       };
 
       ws.onclose = () => {
+        for (const w of waiters.values()) w.reject(new Error("disconnected"));
+        waiters.clear();
         setStatus("disconnected — retrying…", "bad");
         sendBtn.disabled = true;
         if (pending) endTurn(pending.turn);
@@ -476,6 +753,7 @@
       if (!text || !ws || ws.readyState !== WebSocket.OPEN || pending) return;
 
       addMsg("user", text);
+      for (const [re, id] of KEYWORDS) if (re.test(text)) openConnector(id);
       input.value = "";
       sendBtn.disabled = true;
       const agentId = req("agent", {
@@ -487,6 +765,515 @@
     });
 
     connect();
+
+    // ---- tabs: chat / voice share this page and the connector panels ----
+    window.clawOnTool = (name) => { if (connectorState.has(name)) openConnector(name); };
+    function showTab(which) {
+      const voice = which === "voice";
+      document.getElementById("chat-view").hidden = voice;
+      document.getElementById("voice-view").hidden = !voice;
+      document.getElementById("tab-chat").classList.toggle("active", !voice);
+      document.getElementById("tab-voice").classList.toggle("active", voice);
+      if (voice && window.clawVoiceStart) window.clawVoiceStart();
+      else input.focus();
+    }
+    document.getElementById("tab-chat").onclick = () => showTab("chat");
+    document.getElementById("tab-voice").onclick = () => showTab("voice");
+    if (location.hash === "#voice") showTab("voice");
+  </script>
+  <script>
+    // Voice client (hold-to-talk over /ws/voice); starts when the Voice tab opens.
+    (() => {
+    const log = document.getElementById("vlog");
+    const statusEl = document.getElementById("vstatus");
+    const talkBtn = document.getElementById("talk");
+    const hint = document.getElementById("hint");
+    const player = document.getElementById("player");
+
+    const TARGET_RATE = 16000;
+    const CHUNK_SAMPLES = TARGET_RATE / 10; // ~100 ms per frame
+    const TAIL_MS = 200; // keep capturing briefly after release so the last word isn't clipped
+    const IDLE_HINT = "Press and hold, speak, then release.";
+
+    let ws = null;
+    let audioCtx = null;
+    let recording = false; // button held
+    let capturing = false; // sending PCM (recording + release tail)
+    let tailTimer = null;
+    let pcmQueue = [];
+    let pcmQueued = 0;
+    let resampleCarry = new Float32Array(0);
+    let resamplePos = 0;
+    let uttId = 0;
+    // Browser recognition gives word-by-word interim text; ElevenLabs partials only
+    // arrive about once a second, so they are just the fallback display.
+    const BrowserSR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recog = null;
+    const browserLiveIds = new Set();
+    const userBubbles = new Map();
+    const turns = new Map(); // utterance id -> reply turn state
+    // Reply audio arrives as audio_start{id, format}, binary chunks, audio_end.
+    // Replies to utterances older than mutedBelow were barged in on and are dropped.
+    let mutedBelow = 0;
+    let incoming = null; // {id, format, skip, mp3Parts}
+    let pcmCarry = null;
+    let nextPlayTime = 0;
+    const liveSources = new Set();
+
+    function stopPlayback() {
+      player.pause();
+      player.currentTime = 0;
+      if (player.src) URL.revokeObjectURL(player.src);
+      player.removeAttribute("src");
+      player.load();
+      for (const src of liveSources) { try { src.stop(); } catch {} }
+      liveSources.clear();
+      nextPlayTime = 0;
+      pcmCarry = null;
+    }
+
+    function playPcmChunk(data, sampleRate) {
+      if (!audioCtx) return;
+      let bytes = new Uint8Array(data);
+      if (pcmCarry) {
+        const joined = new Uint8Array(pcmCarry.length + bytes.length);
+        joined.set(pcmCarry);
+        joined.set(bytes, pcmCarry.length);
+        bytes = joined;
+        pcmCarry = null;
+      }
+      if (bytes.length % 2) {
+        pcmCarry = bytes.slice(-1);
+        bytes = bytes.slice(0, -1);
+      }
+      if (!bytes.length) return;
+      const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
+      const buffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
+      const channel = buffer.getChannelData(0);
+      for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 0x8000;
+      const src = audioCtx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(audioCtx.destination);
+      const startAt = Math.max(audioCtx.currentTime + 0.03, nextPlayTime);
+      src.start(startAt);
+      nextPlayTime = startAt + buffer.duration;
+      liveSources.add(src);
+      src.onended = () => liveSources.delete(src);
+    }
+
+    function onAudioStart(frame) {
+      const muted = frame.id != null && frame.id < mutedBelow;
+      if (!muted) stopPlayback();
+      incoming = { id: frame.id, format: frame.format, skip: muted || recording, mp3Parts: [] };
+    }
+
+    function onAudioChunk(data) {
+      if (!incoming || incoming.skip || recording) return;
+      const pcm = /^pcm_(\d+)$/.exec(incoming.format || "");
+      if (pcm) playPcmChunk(data, Number(pcm[1]));
+      else incoming.mp3Parts.push(data);
+    }
+
+    function onAudioEnd() {
+      if (incoming && !incoming.skip && !recording && incoming.mp3Parts.length) {
+        player.src = URL.createObjectURL(new Blob(incoming.mp3Parts, { type: "audio/mpeg" }));
+        player.play().catch(() => {});
+      }
+      incoming = null;
+    }
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = cls || "";
+    }
+
+    function escapeHtml(s) {
+      return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderText(el, text) {
+      el.innerHTML = escapeHtml(text)
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    }
+
+    function addMsg(role, text) {
+      const el = document.createElement("div");
+      el.className = `msg ${role}`;
+      if (role === "assistant") renderText(el, text);
+      else el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+      return el;
+    }
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${proto}://${location.host}/ws/voice`);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = async () => {
+        setStatus("requesting microphone…");
+        try {
+          ws.send(JSON.stringify({ type: "prewarm" }));
+          if (!audioCtx) await setupRecorder();
+          setStatus("connected", "ok");
+          talkBtn.disabled = false;
+        } catch (err) {
+          setStatus("microphone access denied", "bad");
+          addMsg("meta", String(err));
+        }
+      };
+
+      ws.onmessage = (ev) => {
+        if (typeof ev.data !== "string") {
+          onAudioChunk(ev.data);
+          return;
+        }
+        let frame;
+        try { frame = JSON.parse(ev.data); } catch { return; }
+
+        const id = frame.id;
+        if (frame.type === "audio_start") {
+          onAudioStart(frame);
+        } else if (frame.type === "audio_end") {
+          onAudioEnd();
+        } else if (frame.type === "transcript_partial") {
+          if (!browserLiveIds.has(id)) setUserText(id, frame.text, true);
+        } else if (frame.type === "transcript_final") {
+          setUserText(id, frame.text, false);
+        } else if (frame.type === "filler") {
+          addMsg("meta", frame.text || "…");
+          hint.textContent = frame.text || "Working…";
+        } else if (frame.type === "reply_delta") {
+          appendText(getTurn(id), frame.delta);
+          hint.textContent = IDLE_HINT;
+        } else if (frame.type === "tool") {
+          const turn = getTurn(id);
+          const info = { id: frame.toolCallId, name: frame.name, args: frame.args, result: frame.result };
+          if (frame.phase === "call") addTool(turn, info);
+          else if (frame.phase === "result") finishTool(turn, info);
+        } else if (frame.type === "turn") {
+          setUserText(id, frame.transcript, false);
+          const turn = getTurn(id);
+          if (!turn.sawText) appendText(turn, frame.reply);
+          endTurn(turn);
+          hint.textContent = IDLE_HINT;
+        } else if (frame.type === "error") {
+          const bubble = userBubbles.get(id);
+          if (bubble && bubble.classList.contains("pending")) bubble.remove();
+          addMsg("meta", frame.message);
+          hint.textContent = IDLE_HINT;
+        }
+      };
+
+      ws.onclose = () => {
+        setStatus("disconnected — retrying…", "bad");
+        talkBtn.disabled = true;
+        stopTalking();
+        endUtterance();
+        incoming = null;
+        setTimeout(connect, 1500);
+      };
+
+      ws.onerror = () => setStatus("connection error", "bad");
+    }
+
+    function setUserText(id, text, pending) {
+      let bubble = userBubbles.get(id);
+      if (!bubble) {
+        bubble = addMsg("user", "");
+        userBubbles.set(id, bubble);
+      }
+      if (pending && !bubble.classList.contains("pending") && bubble.textContent) return;
+      bubble.textContent = text || "…";
+      bubble.classList.toggle("pending", pending);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // ---- reply rendering (mirrors the TUI / chat page) ----
+    // Each utterance's reply lives in a .turn box right after its user bubble.
+    // Consecutive tool calls share one collapsible group; text after a tool
+    // starts a new bubble below it.
+
+    function getTurn(id) {
+      let turn = turns.get(id);
+      if (!turn) {
+        const box = document.createElement("div");
+        box.className = "turn";
+        const anchor = userBubbles.get(id);
+        if (anchor) anchor.after(box);
+        else log.appendChild(box);
+        turn = { box, textEl: null, textBuf: "", group: null, tools: new Map(), sawText: false };
+        turns.set(id, turn);
+      }
+      return turn;
+    }
+
+    function appendText(turn, delta) {
+      if (!turn.textEl) {
+        turn.textEl = document.createElement("div");
+        turn.textEl.className = "msg assistant";
+        turn.box.appendChild(turn.textEl);
+        turn.textBuf = "";
+        turn.group = null;
+      }
+      turn.textBuf += delta;
+      turn.sawText = true;
+      renderText(turn.textEl, turn.textBuf);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function pretty(value) {
+      if (value === undefined || value === null || value === "") return "";
+      let text = value;
+      if (typeof value === "string") {
+        try { text = JSON.stringify(JSON.parse(value), null, 2); } catch { text = value; }
+      } else {
+        text = JSON.stringify(value, null, 2);
+      }
+      return text.length > 4000 ? text.slice(0, 4000) + "…" : text;
+    }
+
+    function updateGroup(group) {
+      const entries = group.entries;
+      const done = entries.every((e) => e.done);
+      const names = entries.map((e) => e.name);
+      const counts = new Map();
+      for (const n of names) counts.set(n, (counts.get(n) || 0) + 1);
+      let label;
+      if (counts.size === 1) {
+        const [name, n] = counts.entries().next().value;
+        label = n > 1 ? `${name} ×${n}` : name;
+      } else if (names.length <= 3) {
+        label = names.join(", ");
+      } else {
+        label = `${names.length} tools`;
+      }
+      group.summary.textContent = `${done ? "✓" : "⚙"} ${label}`;
+      group.details.classList.toggle("running", !done);
+    }
+
+    function renderEntry(entry) {
+      const el = entry.el;
+      el.replaceChildren();
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = `${entry.done ? "✓" : "⚙"} ${entry.name}`;
+      el.appendChild(name);
+      for (const [label, value] of [["args", entry.args], ["result", entry.result]]) {
+        const body = pretty(value);
+        if (!body) continue;
+        const l = document.createElement("div");
+        l.className = "label";
+        l.textContent = label;
+        const pre = document.createElement("pre");
+        pre.textContent = body;
+        el.append(l, pre);
+      }
+    }
+
+    function addTool(turn, { id, name, args, result, done }) {
+      if (window.clawOnTool) window.clawOnTool(name);
+      if (!turn.group) {
+        const details = document.createElement("details");
+        details.className = "tools";
+        const summary = document.createElement("summary");
+        details.appendChild(summary);
+        turn.box.appendChild(details);
+        turn.group = { details, summary, entries: [] };
+        turn.textEl = null;
+      }
+      const el = document.createElement("div");
+      el.className = "tool-entry";
+      turn.group.details.appendChild(el);
+      const entry = { name: name || "tool", args, result, done: !!done, el, group: turn.group };
+      turn.group.entries.push(entry);
+      if (id) turn.tools.set(id, entry);
+      renderEntry(entry);
+      updateGroup(turn.group);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function finishTool(turn, { id, name, result }) {
+      const entry = id && turn.tools.get(id);
+      if (!entry) {
+        addTool(turn, { id, name, result, done: true });
+        return;
+      }
+      entry.result = result;
+      entry.done = true;
+      renderEntry(entry);
+      updateGroup(entry.group);
+    }
+
+    function endTurn(turn) {
+      for (const entry of turn.tools.values()) {
+        if (!entry.done) { entry.done = true; renderEntry(entry); updateGroup(entry.group); }
+      }
+    }
+
+    const WORKLET_SRC = `
+      class PcmTap extends AudioWorkletProcessor {
+        process(inputs) {
+          const ch = inputs[0] && inputs[0][0];
+          if (ch) this.port.postMessage(ch.slice(0));
+          return true;
+        }
+      }
+      registerProcessor("pcm-tap", PcmTap);
+    `;
+
+    async function setupRecorder() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+      audioCtx = new AudioContext();
+      const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: "application/javascript" }));
+      await audioCtx.audioWorklet.addModule(url);
+      const source = audioCtx.createMediaStreamSource(stream);
+      const tap = new AudioWorkletNode(audioCtx, "pcm-tap");
+      tap.port.onmessage = (e) => { if (capturing) pushSamples(e.data); };
+      source.connect(tap);
+      // The tap writes no output, but some browsers only pull nodes that reach the destination.
+      tap.connect(audioCtx.destination);
+    }
+
+    // Linear-interpolation resample from the context rate down to 16 kHz.
+    function resample(input) {
+      const ratio = audioCtx.sampleRate / TARGET_RATE;
+      const buf = new Float32Array(resampleCarry.length + input.length);
+      buf.set(resampleCarry);
+      buf.set(input, resampleCarry.length);
+      const out = [];
+      let pos = resamplePos;
+      while (pos + 1 < buf.length) {
+        const i = Math.floor(pos);
+        const frac = pos - i;
+        out.push(buf[i] + (buf[i + 1] - buf[i]) * frac);
+        pos += ratio;
+      }
+      const keep = Math.floor(pos);
+      resampleCarry = buf.slice(keep);
+      resamplePos = pos - keep;
+      return out;
+    }
+
+    function pushSamples(input) {
+      const samples = resample(input);
+      const pcm = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      pcmQueue.push(pcm);
+      pcmQueued += pcm.length;
+      if (pcmQueued >= CHUNK_SAMPLES) flushPcm();
+    }
+
+    function flushPcm() {
+      if (!pcmQueued) return;
+      const merged = new Int16Array(pcmQueued);
+      let off = 0;
+      for (const part of pcmQueue) { merged.set(part, off); off += part.length; }
+      pcmQueue = [];
+      pcmQueued = 0;
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(merged.buffer);
+    }
+
+    function startBrowserRecognition(id) {
+      if (!BrowserSR) return;
+      try {
+        recog = new BrowserSR();
+        recog.continuous = true;
+        recog.interimResults = true;
+        recog.lang = "en-US";
+        recog.onresult = (e) => {
+          let text = "";
+          for (const r of e.results) text += r[0].transcript;
+          browserLiveIds.add(id);
+          setUserText(id, text.trim(), true);
+        };
+        recog.onerror = () => {};
+        recog.start();
+      } catch {
+        recog = null;
+      }
+    }
+
+    function stopBrowserRecognition() {
+      if (!recog) return;
+      try { recog.stop(); } catch {}
+      recog = null;
+    }
+
+    function endUtterance() {
+      if (tailTimer) { clearTimeout(tailTimer); tailTimer = null; }
+      if (!capturing) return;
+      capturing = false;
+      stopBrowserRecognition();
+      flushPcm();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "end_utterance" }));
+        hint.textContent = "Thinking…";
+      }
+    }
+
+    function startTalking() {
+      if (!audioCtx || recording || !ws || ws.readyState !== WebSocket.OPEN) return;
+      endUtterance(); // a press during the previous release tail closes that utterance first
+      audioCtx.resume();
+      recording = true;
+      capturing = true;
+      stopPlayback();
+      if (incoming) incoming.skip = true;
+      talkBtn.classList.add("recording");
+      talkBtn.textContent = "Listening…";
+      hint.textContent = "Listening…";
+      pcmQueue = [];
+      pcmQueued = 0;
+      resampleCarry = new Float32Array(0);
+      resamplePos = 0;
+      uttId++;
+      mutedBelow = uttId;
+      setUserText(uttId, "", true);
+      ws.send(JSON.stringify({ type: "start_utterance", id: uttId }));
+      startBrowserRecognition(uttId);
+    }
+
+    function stopTalking() {
+      if (!recording) return;
+      recording = false;
+      talkBtn.classList.remove("recording");
+      talkBtn.textContent = "Hold to talk";
+      tailTimer = setTimeout(endUtterance, TAIL_MS);
+    }
+
+    function prewarm() {
+      if (ws && ws.readyState === WebSocket.OPEN && !recording) {
+        ws.send(JSON.stringify({ type: "prewarm" }));
+      }
+    }
+    talkBtn.addEventListener("pointerenter", prewarm);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) prewarm(); });
+
+    talkBtn.addEventListener("mousedown", startTalking);
+    talkBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startTalking(); });
+    talkBtn.addEventListener("mouseup", stopTalking);
+    talkBtn.addEventListener("mouseleave", stopTalking);
+    talkBtn.addEventListener("touchend", (e) => { e.preventDefault(); stopTalking(); });
+
+    let started = false;
+    window.clawVoiceStart = () => {
+      if (started) return;
+      started = true;
+      connect();
+    };
+    })();
   </script>
 </body>
 </html>

@@ -55,6 +55,10 @@ class Settings:
     elevenlabs_stt_model: str = DEFAULT_ELEVENLABS_STT_MODEL
     elevenlabs_tts_model: str = DEFAULT_ELEVENLABS_TTS_MODEL
     vapi_llm_secret: str | None = None
+    nessie_api_key: str | None = None
+    nessie_base_url: str = "https://api.nessieisreal.com"
+    finchnode_base_url: str = "https://api.finchnode.com/demo/v1"
+    finchnode_subject: str = "patient-demo-001"
 
     @property
     def sessions_dir(self) -> Path:
@@ -152,6 +156,11 @@ def get_settings() -> Settings:
         computer_use=computer_use,
         elevenlabs_api_key=os.getenv("ELEVENLABS_API_KEY", "").strip() or None,
         vapi_llm_secret=os.getenv("VAPI_LLM_SECRET", "").strip() or None,
+        nessie_api_key=os.getenv("NESSIE_API_KEY", "").strip() or None,
+        nessie_base_url=os.getenv("NESSIE_BASE_URL", "").strip() or "https://api.nessieisreal.com",
+        finchnode_base_url=os.getenv("FINCHNODE_BASE_URL", "").strip()
+        or "https://api.finchnode.com/demo/v1",
+        finchnode_subject=os.getenv("FINCHNODE_SUBJECT", "").strip() or "patient-demo-001",
         elevenlabs_voice_id=(
             os.getenv("ELEVENLABS_VOICE_ID", DEFAULT_ELEVENLABS_VOICE_ID).strip()
             or DEFAULT_ELEVENLABS_VOICE_ID

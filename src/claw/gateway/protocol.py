@@ -13,6 +13,8 @@ ADVERTISED_METHODS = [
     "agent",
     "agent.wait",
     "chat.history",
+    "connectors.list",
+    "connectors.fetch",
     "channel.inbound",
     "cron.add",
     "cron.list",

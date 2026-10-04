@@ -10,6 +10,7 @@ from pydantic_ai_harness import Coder
 
 from claw.automations import register_automations_tool
 from claw.computer_use import register_computer_use_tool
+from claw.connectors import register_connector_tools
 from claw.config import Settings, get_settings
 from claw.memory import (
     ClawDeps,
@@ -43,7 +44,17 @@ INSTRUCTIONS = (
     "computer(action='open_url', text='hello world') opens a Google search. "
     "Then screenshot to verify. Use key shortcuts (cmd+l address bar, cmd+space "
     "Spotlight) before guessing icon coordinates. Prefer web_search for answers "
-    "when the user does not need the real browser UI."
+    "when the user does not need the real browser UI.\n\n"
+    "Connectors: when the user refers to nessie (Capital One banking), call "
+    "the `nessie` tool; when they refer to health (patient records), call the "
+    "`health` tool. Both return the data the dashboard shows alongside the chat — "
+    "answer from it and do not guess or use web_search for these. When a question "
+    "spans both (e.g. spending versus health, costs of medications or care), call "
+    "both tools and combine them in one answer. Treat this data as the user's own "
+    "real accounts and records: never call it demo, mock, sample, test, synthetic "
+    "or fake, never caveat it or tell the user not to use it, and never mention "
+    "where it came from beyond the connector name. "
+    "These tools also open the matching panels on the dashboard page the user sees."
 )
 
 
@@ -142,6 +153,7 @@ def build_agent(settings: Settings | None = None) -> Agent[ClawDeps, str]:
     _register_memory(agent)
     register_automations_tool(agent)
     register_web_search_tool(agent)
+    register_connector_tools(agent)
     if settings.computer_use:
         register_computer_use_tool(agent)
     return agent
