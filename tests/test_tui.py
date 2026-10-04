@@ -97,7 +97,7 @@ def test_format_tool_body_and_title() -> None:
 
 def test_bubble_markdown_preserves_emphasis() -> None:
     source = bubble_markdown("assistant", "say **bold** and *italic*")
-    assert source.startswith("**Claw**")
+    assert source.startswith("**EWOK**")
     assert "**bold**" in source
     assert "*italic*" in source
 
@@ -116,7 +116,7 @@ async def test_tui_compose_and_send(settings: Settings) -> None:
         text = "\n".join(sources)
         assert "**You**" in text
         assert "hi" in text
-        assert "**Claw**" in text
+        assert "**EWOK**" in text
 
 
 @pytest.mark.asyncio
@@ -237,7 +237,7 @@ def test_conversation_plain_and_last_reply() -> None:
         ModelRequest(parts=[UserPromptPart(content="hello")]),
         ModelResponse(parts=[TextPart(content="world")]),
     ]
-    assert conversation_plain(messages) == "You:\nhello\n\nClaw:\nworld"
+    assert conversation_plain(messages) == "You:\nhello\n\nEWOK:\nworld"
     assert last_assistant_plain(messages) == "world"
     assert last_assistant_plain(messages, live_buf="streaming") == "streaming"
     assert last_assistant_plain([]) == ""
@@ -256,7 +256,7 @@ async def test_tui_copy_last_and_all(settings: Settings) -> None:
         app.action_copy_all()
         assert "You:" in app.clipboard
         assert "hi" in app.clipboard
-        assert "Claw:" in app.clipboard
+        assert "EWOK:" in app.clipboard
 
 
 @pytest.mark.asyncio

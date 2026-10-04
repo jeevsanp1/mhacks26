@@ -1,4 +1,4 @@
-# claw — OpenClaw-style harness on Pydantic AI
+# EWOK — OpenClaw-style harness on Pydantic AI
 
 A small local AI harness inspired by [OpenClaw](https://docs.openclaw.ai/architecture):
 a long-lived **WebSocket gateway**, session-serialized agent turns, streamed
@@ -23,7 +23,7 @@ Bootstrap + durable memory live under `CLAW_STATE_DIR/workspace` (default
 - `MEMORY.md` — curated long-term memory (injected for private sessions)
 - `memory/YYYY-MM-DD.md` — daily notes (on-demand via tools)
 
-Tools: `memory_get`, `memory_search`, `memory_append`. Ask Claw to “remember …” and it
+Tools: `memory_get`, `memory_search`, `memory_append`. Ask EWOK to “remember …” and it
 should write durable facts to disk (not only chat history).
 
 ## Install

@@ -148,7 +148,7 @@ def bubble_markdown(role: Role, text: str, *, headed: bool = True) -> str:
         return f"**You**\n\n{safe}"
     if role == "assistant":
         if headed:
-            return f"**Claw**\n\n{safe}"
+            return f"**EWOK**\n\n{safe}"
         return safe
     return safe
 
@@ -160,7 +160,7 @@ def conversation_plain(messages: list[ModelMessage]) -> str:
         if role == "user":
             chunks.append(f"You:\n{text}")
         elif role == "assistant":
-            chunks.append(f"Claw:\n{text}")
+            chunks.append(f"EWOK:\n{text}")
         elif role == "tool":
             chunks.append(text)
     return "\n\n".join(chunks)
@@ -201,7 +201,7 @@ class ChatLog(VerticalScroll):
 
 
 class ChatApp(App[None]):
-    TITLE = "claw"
+    TITLE = "EWOK"
     CSS = """
     Screen {
         background: #0b1220;
@@ -561,7 +561,7 @@ class ChatApp(App[None]):
         await log.mount(self._assistant)
         self._stream = Markdown.get_stream(self._assistant)
         if not self._turn_has_assistant_header:
-            await self._stream.write("**Claw**\n\n")
+            await self._stream.write("**EWOK**\n\n")
             self._turn_has_assistant_header = True
         self._need_new_assistant = False
         return self._stream
@@ -641,7 +641,7 @@ class ChatApp(App[None]):
         if scheduled_job_id:
             # Don't dump the internal scheduled prompt as a user bubble
             await log.mount(
-                plain_static("Claw waking for scheduled turn…", classes="meta")
+                plain_static("EWOK waking for scheduled turn…", classes="meta")
             )
         else:
             await log.mount(Markdown(bubble_markdown("user", text), classes="user"))

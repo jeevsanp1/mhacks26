@@ -1,6 +1,6 @@
 ---
-name: Claw
-description: A calm, white-and-mist, teal interface for an older adult's AI assistant, built on the SBB design system's structure, tokens and principles, in Claw's own palette (working name; final name pending).
+name: EWOK
+description: A calm, white-and-mist, teal interface for an older adult's AI assistant, built on the SBB design system's structure, tokens and principles, in EWOK's own palette (working name; final name pending).
 colors:
   white: "#ffffff"
   mist: "#e7ecef"
@@ -123,15 +123,15 @@ components:
     padding: "0 0.75rem"
 ---
 
-# Design System: Claw
+# Design System: EWOK
 
-*Foundation: the SBB design system (digital.sbb.ch, Lyne v5.7.0). Structure, principles, spacing, type scale, radii, elevation, motion, breakpoints and UX-writing rules are SBB's. Colours are the user's palette (coolors.co/f05d5e-0f7173-e7ecef-272932-d8a47f), which replaces SBB's colours. Elsewhere, where SBB and an earlier Claw decision disagree, SBB wins. Behavioral and writing rules live in `UX-GUIDELINES.md`. Tokens live in `src/claw/gateway/static/tokens.css` and are the code source of truth.*
+*Foundation: the SBB design system (digital.sbb.ch, Lyne v5.7.0). Structure, principles, spacing, type scale, radii, elevation, motion, breakpoints and UX-writing rules are SBB's. Colours are the user's palette (coolors.co/f05d5e-0f7173-e7ecef-272932-d8a47f), which replaces SBB's colours. Elsewhere, where SBB and an earlier EWOK decision disagree, SBB wins. Behavioral and writing rules live in `UX-GUIDELINES.md`. Tokens live in `src/claw/gateway/static/tokens.css` and are the code source of truth.*
 
 ## Overview
 
 **Creative North Star: "The Station Concourse"**
 
-A public concourse works because it is calm, legible and obvious: wide white space, large unambiguous signs, one clear route at a time, and nothing that makes a first-time visitor feel stupid. Claw borrows that. White and mist carry about 60% of every screen, ink text and neutrals about 25%, teal about 10% for the one thing to do next, and coral and tan the remaining 5%. Type is large, spacing is generous, controls are big and round, and corners soften without turning toy-like. The restraint echoes 2010s Apple without imitating it.
+A public concourse works because it is calm, legible and obvious: wide white space, large unambiguous signs, one clear route at a time, and nothing that makes a first-time visitor feel stupid. EWOK borrows that. White and mist carry about 60% of every screen, ink text and neutrals about 25%, teal about 10% for the one thing to do next, and coral and tan the remaining 5%. Type is large, spacing is generous, controls are big and round, and corners soften without turning toy-like. The restraint echoes 2010s Apple without imitating it.
 
 SBB's principles govern decisions: User-centred, Recognisable, Inclusive, Reduced ("as little as possible, as much as necessary"), Holistic, Self-explanatory, Task-oriented, Appropriate. Inclusive and Reduced weigh most for an older-adult product.
 
@@ -190,7 +190,7 @@ Text on primary is white in light mode and the dark page colour in dark mode. Su
 
 ## Layout
 
-SBB grid: 4 / 8 / 12 / 16 columns at the zero / small / large / ultra breakpoints (below 600px, 600px, 1024px, 1440px), gutters 1 / 1.5 / 2 / 2rem, page offsets 1.25 / 3 / 4 / 7.5rem, max content width 75rem. The Claw app shell is a full-height three-pane (connectors 17rem, content, chat 24–32rem) and, like SBB's own sidebar pattern, is exempt from the 75rem cap; reading content is still capped at 65ch. Below 1024px the shell becomes one column and the page scrolls; nothing is squeezed into a fixed-height region. Spacing follows SBB's 4px fixed scale (0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4rem).
+SBB grid: 4 / 8 / 12 / 16 columns at the zero / small / large / ultra breakpoints (below 600px, 600px, 1024px, 1440px), gutters 1 / 1.5 / 2 / 2rem, page offsets 1.25 / 3 / 4 / 7.5rem, max content width 75rem. The EWOK app shell is a full-height three-pane (connectors 17rem, content, chat 24–32rem) and, like SBB's own sidebar pattern, is exempt from the 75rem cap; reading content is still capped at 65ch. Below 1024px the shell becomes one column and the page scrolls; nothing is squeezed into a fixed-height region. Spacing follows SBB's 4px fixed scale (0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4rem).
 
 ## Elevation & Depth
 

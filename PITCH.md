@@ -1,12 +1,12 @@
-# Claw — Pitch Deck
+# EWOK — Pitch Deck
 
-> One slide per `##` heading. Working name "Claw"; easy to swap.
+> One slide per `##` heading. Name: EWOK.
 
 ---
 
 ## 1. Title
 
-# Claw
+# EWOK
 **A voice-first AI assistant that makes technology work for older adults, and keeps them in control.**
 
 MHacks 26
@@ -35,14 +35,14 @@ Older adults, as the **principal**. The agent serves *their* goals, even when a 
 
 ## 4. The solution
 
-**Talk to Claw like a person. It handles the rest.**
+**Talk to EWOK like a person. It handles the rest.**
 
 | Channel | How it helps |
 |---|---|
 | Phone call (Vapi number) | No app, no install. Just dial. |
 | Voice in the browser (ElevenLabs STT/TTS) | Push-to-talk, spoken replies |
 | Web chat | Large-text alternative to voice |
-| Dashboard | Everything Claw knows, in one place the person can read |
+| Dashboard | Everything EWOK knows, in one place the person can read |
 
 ---
 
@@ -120,7 +120,7 @@ Ask in chat or by voice, and the matching panel opens next to the conversation.
 | Calendar | Upcoming events | "calendar" |
 | **+** | More connectors can be added | Suggest one |
 
-Claw can combine them: "How much do my medications cost me?" pulls from health and banking together.
+EWOK can combine them: "How much do my medications cost me?" pulls from health and banking together.
 
 ---
 
@@ -136,10 +136,10 @@ Claw can combine them: "How much do my medications cost me?" pulls from health a
 "What's on my calendar this week?" Read aloud, with reminders for what's coming up.
 
 **Scam second opinion**
-Forward a suspicious email or text. Claw flags the red flags, explains why, and offers to notify family.
+Forward a suspicious email or text. EWOK flags the red flags, explains why, and offers to notify family.
 
 **Simplifying email and the computer**
-"Open my email." Claw operates the desktop and browser for them, so they don't have to hunt for icons.
+"Open my email." EWOK operates the desktop and browser for them, so they don't have to hunt for icons.
 
 **Reminders and routines**
 "Remind me to take my pills at 8." Scheduled automations run on their own, including outbound reminders.
@@ -175,4 +175,4 @@ A trusted contact is notified for scam flags or after high-stakes actions, witho
 
 **Technology should adapt to people, not the other way around.**
 
-Claw gives older adults a patient voice, a clear screen, and guardrails that keep them in charge.
+EWOK gives older adults a patient voice, a clear screen, and guardrails that keep them in charge.

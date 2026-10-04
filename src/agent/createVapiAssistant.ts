@@ -24,11 +24,11 @@ function saveState(state: VapiState): void {
 // claw, so the assistant carries no system prompt or tools of its own.
 async function main() {
   const clawUrl = `${env.CLAW_PUBLIC_URL.replace(/\/$/, "")}/vapi/${env.VAPI_LLM_SECRET}`;
-  console.log(`Claw gateway URL for Vapi: ${env.CLAW_PUBLIC_URL}/vapi/<secret>`);
+  console.log(`EWOK gateway URL for Vapi: ${env.CLAW_PUBLIC_URL}/vapi/<secret>`);
   console.log("Make sure it is publicly reachable (e.g. a tunnel to the gateway port) before calls come in.\n");
 
   const assistant = {
-    name: "Claw Voice Agent",
+    name: "EWOK Voice Agent",
     firstMessage: "Hi, it's your assistant. How can I help today?",
     model: { provider: "custom-llm", url: clawUrl, model: "claw" },
     // Vapi-provided voice. A custom ElevenLabs voice needs your ElevenLabs key added

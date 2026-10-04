@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Claw</title>
+  <title>EWOK</title>
+  <link rel="icon" href="/static/ewok.svg" />
   <script>try { const t = localStorage.getItem("claw-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
   <link rel="stylesheet" href="/static/tokens.css" />
   <style>
@@ -61,7 +62,16 @@
       gap: var(--ds-space-4); flex-wrap: wrap;
       padding-bottom: var(--ds-space-3);
     }
-    .brand { margin: 0; }
+    .brand { margin: 0; line-height: 0; }
+    /* The wordmark is a mask, so it takes the theme's primary colour in light and dark. */
+    .brand-logo {
+      display: block; width: 125px; height: 29.08px; background: var(--ds-primary);
+      -webkit-mask: url(/static/ewok.svg) center / contain no-repeat;
+      mask: url(/static/ewok.svg) center / contain no-repeat;
+    }
+    @media (forced-colors: active) { .brand-logo { background: CanvasText; } }
+    .colophon { position: relative; margin-top: var(--ds-space-8); padding-top: var(--ds-space-3); border-top: var(--ds-border-1x) solid var(--ds-border-divider); }
+    .colophon p { margin: 0; font-family: var(--ds-font-serif); font-style: italic; font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
     .header-tools { display: flex; align-items: center; gap: var(--ds-space-5); flex-wrap: wrap; justify-content: flex-end; }
     #status, #vstatus { font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
     #status::before, #vstatus::before {
@@ -326,7 +336,7 @@
   <div class="sheet">
   <a class="skip-link" href="#chat">Skip to talk</a>
   <header class="masthead">
-    <p class="brand">Claw</p>
+    <p class="brand"><span class="brand-logo" role="img" aria-label="EWOK"></span></p>
     <div class="header-tools">
       <button id="theme-switch" class="switch" type="button" data-dark="false"><span class="switch-label" id="theme-switch-label">Dark mode</span><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></button>
       <span id="status" role="status">Connecting…</span>
@@ -336,7 +346,7 @@
     <section class="intro" aria-labelledby="hello">
       <span class="rule" aria-hidden="true"></span>
       <h1 id="hello">Hiya, Rishi</h1>
-      <p class="lede">Tap the dial and tell Claw what you need.</p>
+      <p class="lede">Tap the dial and tell EWOK what you need.</p>
       <div class="today">
         <h2 class="label">Today</h2>
         <div class="clock" id="clock-time"></div>
@@ -344,7 +354,7 @@
       </div>
     </section>
     <section id="chat" aria-label="Chat and voice">
-      <div class="tabs" role="tablist" aria-label="How to talk to Claw">
+      <div class="tabs" role="tablist" aria-label="How to talk to EWOK">
         <button type="button" id="tab-voice" class="active" role="tab" aria-selected="true" aria-controls="voice-view">Voice</button>
         <button type="button" id="tab-chat" role="tab" aria-selected="false" aria-controls="chat-view">Chat</button>
         <button type="button" id="tab-connectors" role="tab" aria-selected="false" aria-controls="connectors-view">Connectors</button>
@@ -454,6 +464,9 @@
       </div>
     </section>
   </main>
+  <footer class="colophon">
+    <p>Built to WCAG 2.2 AAA: 7:1 contrast, large targets, visible focus, never colour alone.</p>
+  </footer>
   </div>
   <script>
     const log = document.getElementById("log");
@@ -936,7 +949,7 @@
       };
 
       ws.onerror = () => {
-        setStatus("Connection error. Check that Claw is running.", "bad");
+        setStatus("Connection error. Check that EWOK is running.", "bad");
       };
     }
 
@@ -993,7 +1006,7 @@
     const HOLD_MS = 400; // a press held this long is push-to-talk; a shorter one is a tap that keeps listening
     const IDLE_HINT = "Tap the button, speak at your own pace, then tap Done. You can also press and hold.";
     const LISTEN_HINT = "Listening. Take your time, then tap Done. Cancel throws this away.";
-    const MIC_HINT = "Claw needs your microphone to hear you. Your browser will ask once: choose Allow.";
+    const MIC_HINT = "EWOK needs your microphone to hear you. Your browser will ask once: choose Allow.";
 
     let ws = null;
     let audioCtx = null;
@@ -1178,7 +1191,7 @@
         setTimeout(connect, 1500);
       };
 
-      ws.onerror = () => setStatus("Connection error. Check that Claw is running.", "bad");
+      ws.onerror = () => setStatus("Connection error. Check that EWOK is running.", "bad");
     }
 
     function setUserText(id, text, pending) {

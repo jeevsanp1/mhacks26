@@ -3,7 +3,7 @@
 # It writes a task file that the agent will pick up.
 
 cat << 'EOF' > /tmp/claw_task.txt
-You are Claw, a local operator assistant. This task was placed here by the auto_respond.sh script.
+You are EWOK, a local operator assistant. This task was placed here by the auto_respond.sh script.
 Please reply with exactly: "One minute has passed. I am responding on my own as requested."
 EOF
 

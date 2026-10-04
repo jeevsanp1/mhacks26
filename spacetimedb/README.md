@@ -1,11 +1,11 @@
-# Claw job coordination (SpacetimeDB)
+# EWOK job coordination (SpacetimeDB)
 
-Transactional task/job queue used when multiple Claw gateways (or channels) may
+Transactional task/job queue used when multiple EWOK gateways (or channels) may
 claim the same due automation.
 
 ## Tables
 
-- `job` — OpenClaw-shaped cron jobs (`schedule_json`, `payload_json`, …) plus
+- `job` — OpenEWOK-shaped cron jobs (`schedule_json`, `payload_json`, …) plus
   `claimed_by` / `claimed_at_ms` for worker leases.
 
 ## Reducers
@@ -29,7 +29,7 @@ npm install
 spacetime publish claw-jobs -p spacetimedb -s local3001 -y
 ```
 
-Point Claw at it:
+Point EWOK at it:
 
 ```bash
 export CLAW_SPACETIME_URI=http://127.0.0.1:3001
@@ -37,5 +37,5 @@ export CLAW_SPACETIME_DB=claw-jobs
 claw gateway
 ```
 
-Without these env vars, Claw uses the local file job store with a directory lock
+Without these env vars, EWOK uses the local file job store with a directory lock
 for single-host exclusive claims.

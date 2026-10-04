@@ -12,7 +12,7 @@ def test_chat_page_served(settings: Settings) -> None:
         res = client.get("/")
         assert res.status_code == 200
         assert "text/html" in res.headers.get("content-type", "")
-        assert "Claw" in res.text
+        assert "EWOK" in res.text
         assert "/ws" in res.text
         assert 'method", "agent"' in res.text or 'req("agent"' in res.text
 

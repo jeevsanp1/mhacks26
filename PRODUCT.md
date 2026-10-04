@@ -12,7 +12,7 @@ Older adults are the primary audience: people who may have slow speech, hearing 
 The web dashboard's primary user is the older adult themselves (confirmed). Design it for direct use by them, not as a caregiver console.
 
 ## Product Purpose
-Claw is a voice-first AI assistant for older adults that simplifies complex technology (email, computer use), automates menial tasks, and keeps the person in control. Reading and reminders are free; money, identity, and sharing personal info get strong, plain-language friction. The project is a hackathon demo (MHacks 26); success is a clear, credible demonstration of this idea.
+EWOK is a voice-first AI assistant for older adults that simplifies complex technology (email, computer use), automates menial tasks, and keeps the person in control. Reading and reminders are free; money, identity, and sharing personal info get strong, plain-language friction. The project is a hackathon demo (MHacks 26); success is a clear, credible demonstration of this idea.
 
 ## Positioning
 The policy layer (permission tiers, spending caps, scam checks) lives outside the model, so the agent cannot be talked out of its rules. The older person stays the principal, with settings they can see and change.
@@ -29,10 +29,10 @@ Channels: voice (ElevenLabs, Vapi phone number), web chat, and a local gateway d
 - Gateway binds localhost; auth token optional.
 
 ## Brand Commitments
-- Working name: "Claw" (current name; the user will provide the final name later, so keep it easy to change).
+- Name: "EWOK" (logo: `src/claw/gateway/static/ewok.svg`, drawn in the primary rose via a CSS mask).
 - Binding visual constraint volunteered by the user: a clean, restrained look in the vein of 2010s Apple design. The user said not to go too far with the Apple identity: take the restraint and clarity, not literal imitation. Recorded as stated; its translation into a visual world belongs to the design phase.
-- Design system follows SBB (digital.sbb.ch, Lyne v5.7.0) as the governing authority: structure, principles, tokens, UX-writing and notification rules. Where an earlier Claw decision conflicts with SBB, SBB wins, except where WCAG 2.2 AAA (confirmed requirement) is stricter than SBB's AA, which is kept. SBB's principles: User-centred, Recognisable, Inclusive, Reduced, Holistic, Self-explanatory, Task-oriented, Appropriate.
-- SBB's "Rights of use" restrict its logo, signet, icons, pictograms, timetable icons, clock and typeface to SBB and Swiss public transport. Claw must not use them, and uses the user's own palette instead of SBB's colours (teal #0f7173, coral #f05d5e, mist #e7ecef, ink #272932, tan #d8a47f; coolors.co/f05d5e-0f7173-e7ecef-272932-d8a47f), with coral for errors only. This palette replaces SBB's colours; the user chose it after the SBB crawl. Raw teal and tan are not used because they fail AAA; only AAA-passing lightness steps of the palette hues are used. Light and dark mode are both required.
+- Design system follows SBB (digital.sbb.ch, Lyne v5.7.0) as the governing authority: structure, principles, tokens, UX-writing and notification rules. Where an earlier EWOK decision conflicts with SBB, SBB wins, except where WCAG 2.2 AAA (confirmed requirement) is stricter than SBB's AA, which is kept. SBB's principles: User-centred, Recognisable, Inclusive, Reduced, Holistic, Self-explanatory, Task-oriented, Appropriate.
+- SBB's "Rights of use" restrict its logo, signet, icons, pictograms, timetable icons, clock and typeface to SBB and Swiss public transport. EWOK must not use them, and uses the user's own palette instead of SBB's colours (teal #0f7173, coral #f05d5e, mist #e7ecef, ink #272932, tan #d8a47f; coolors.co/f05d5e-0f7173-e7ecef-272932-d8a47f), with coral for errors only. This palette replaces SBB's colours; the user chose it after the SBB crawl. Raw teal and tan are not used because they fail AAA; only AAA-passing lightness steps of the palette hues are used. Light and dark mode are both required.
 
 ## Evidence on Hand
 - `reqs.md` (requirements and architecture outline), `README.md`, `src/agent/systemPrompt.ts` (voice and behavior).

@@ -150,7 +150,7 @@ Be concise, helpful, and direct. Prefer action over ceremony.
 
 DEFAULT_IDENTITY = """# IDENTITY.md
 
-Name: Claw
+Name: EWOK
 Vibe: practical local operator
 """
 

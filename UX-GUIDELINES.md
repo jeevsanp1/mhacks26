@@ -1,10 +1,10 @@
 # UX guidelines
 
-Source: the SBB design system (digital.sbb.ch), crawled 2026-10-03: principles, accessibility guide (all seven roles), UX writing, Lyne component rules, AI design basics. Where SBB and an earlier Claw decision disagree, SBB wins. Where WCAG 2.2 AAA is stricter than SBB's AA, AAA wins (PRODUCT.md). Visual rules live in `DESIGN.md`.
+Source: the SBB design system (digital.sbb.ch), crawled 2026-10-03: principles, accessibility guide (all seven roles), UX writing, Lyne component rules, AI design basics. Where SBB and an earlier EWOK decision disagree, SBB wins. Where WCAG 2.2 AAA is stricter than SBB's AA, AAA wins (PRODUCT.md). Visual rules live in `DESIGN.md`.
 
 ## Principles (SBB) and what each means here
 
-| Principle | In Claw |
+| Principle | In EWOK |
 |---|---|
 | User-centred | Test with real older adults, in their own setting, early and often. |
 | Recognisable | Same patterns on chat, voice and phone: same words, same confirmation shape. |
@@ -83,8 +83,8 @@ Source: the SBB design system (digital.sbb.ch), crawled 2026-10-03: principles, 
 - **Title**: correct semantic levels; visual size can differ from the level; avoid too many titles.
 
 ## Brand and licensing (SBB "Rights of use")
-- SBB's logo, signet, icons, pictograms, timetable icons, clock and typeface are restricted to SBB and Swiss public transport; they may not be changed or reused. Claw uses none of them.
-- Claw's colours are the user's own palette (teal, coral, mist, ink, tan), not SBB's. Coral is used only for errors, following SBB's rule that red is reserved for errors.
+- SBB's logo, signet, icons, pictograms, timetable icons, clock and typeface are restricted to SBB and Swiss public transport; they may not be changed or reused. EWOK uses none of them.
+- EWOK's colours are the user's own palette (teal, coral, mist, ink, tan), not SBB's. Coral is used only for errors, following SBB's rule that red is reserved for errors.
 
 ## Known gaps (not yet fixed)
 - Hold-to-talk requires press-and-hold, which fails the "no reliance on gestures" and motor-impairment rules. It needs a tap-to-start, tap-to-stop mode.
