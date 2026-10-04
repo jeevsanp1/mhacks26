@@ -1,85 +1,90 @@
 /*
- * Design tokens. Values come from the SBB design system (digital.sbb.ch, Lyne v5.7.0
- * standard theme): 4px spacing grid, type scale, radii, border widths, elevation,
- * motion and breakpoints. Colours are Claw's own palette (see below), not SBB's.
+ * Design tokens for the Claw dashboard: an editorial "plate" language (cream paper,
+ * double-line frame, large serif title, tracked small caps, hairline rules) taken from
+ * the Tableau viz "The Blooming Year", and its rose / sage / olive / forest palette.
  *
- * Deliberate departures, both of which keep us inside SBB's rules:
- *  - Colours are the user's palette (teal / coral / mist / ink / tan), not SBB's. SBB
- *    logo/icons/pictograms/clock/typeface are not used (SBB "Rights of use").
- *  - Accessibility target is WCAG 2.2 AAA (7:1 text), stricter than SBB's AA minimum,
- *    so every colour used is a lightness step of a palette hue that meets AAA. Dark mode follows the system setting.
+ * Accessibility target is WCAG 2.2 AAA: every text colour below is solved to >= 7:1 on
+ * the surfaces it is used on (paper and paper-deep), in light and dark. Lighter palette
+ * steps (rose-fill, sage, olive, line) are decorative or non-text only, never text.
  */
 :root {
-  /* ---- Colour primitives: the Claw palette (coolors.co/f05d5e-0f7173-e7ecef-272932-d8a47f) ----
-     Only AAA-clean shades are defined; the raw teal and tan are not used. Each shade is a
-     lightness step of a palette hue. Dark values are solved against the dark surfaces. */
   color-scheme: light dark;
 
-  --ds-color-white: #ffffff;
-  --ds-color-mist: #e7ecef;
-  --ds-color-mist-deep: #d3dbe0;
-  --ds-color-ink: #272932;
-  --ds-color-ink-soft: #454956;
-  --ds-color-slate: #757c8a;
-  --ds-color-teal: #0d6263;
-  --ds-color-teal-hover: #0a4e4f;
-  --ds-color-teal-active: #083d3d;
-  --ds-color-coral: #f05d5e;
-  --ds-color-coral-deep: #940e0f;
-  --ds-color-tan-soft: #e2b794;
-  --ds-color-tan-deep: #91562c;
+  /* ---- Light: cream paper ---- */
+  --ds-color-paper: #f4ede1;
+  --ds-color-paper-deep: #ebe1d0;
+  --ds-color-paper-muted: #e0d3bd;
+  --ds-color-ink: #2b2a26;
+  --ds-color-ink-soft: #3d392f;
+  --ds-color-rose: #751f36;          /* text + primary action; 9.0:1 on paper */
+  --ds-color-rose-hover: #5c1829;
+  --ds-color-rose-active: #4a1322;
+  --ds-color-rose-fill: #c0697a;     /* decoration only (the title rule, dial arc) */
+  --ds-color-forest: #1f4a3a;        /* ok / live */
+  --ds-color-olive: #4f430c;         /* sample / mock */
+  --ds-color-sage-fill: #8aa595;     /* decoration only */
+  --ds-color-error: #82191b;
+  --ds-color-line: #766f60;          /* control borders, >= 3:1 */
+  --ds-color-hairline: #bdb29c;      /* quiet rules, not required to meet 3:1 */
+  --ds-color-cream: #fbf7ef;
 
-  --ds-dark-page: #1b1d25;
-  --ds-dark-subtle: #272932;
-  --ds-dark-muted: #363a49;
-  --ds-dark-text: #e7ecef;
-  --ds-dark-text-soft: #c9ccd4;
-  --ds-dark-border: #6c727f;
-  --ds-dark-teal: #6ec2c4;
-  --ds-dark-teal-hover: #80cacb;
-  --ds-dark-teal-active: #92d1d3;
-  --ds-dark-coral-text: #f9bebe;
-  --ds-dark-tan: #dbac8a;
+  /* ---- Dark: night paper, same hairlines ---- */
+  --ds-dark-paper: #16201b;
+  --ds-dark-paper-deep: #1f2b25;
+  --ds-dark-paper-muted: #2b3a32;
+  --ds-dark-ink: #f0e8d8;
+  --ds-dark-ink-soft: #d6cebd;
+  --ds-dark-rose: #f5c0cb;
+  --ds-dark-rose-hover: #fad3db;
+  --ds-dark-rose-active: #fde3e8;
+  --ds-dark-rose-fill: #c0697a;
+  --ds-dark-forest: #b2d6c3;
+  --ds-dark-olive: #e0d386;
+  --ds-dark-sage-fill: #5f7b6e;
+  --ds-dark-error: #f8bdb7;
+  --ds-dark-line: #7d8c83;
+  --ds-dark-hairline: #4a5b52;
 
-  /* ---- Semantic colour (light / dark follow the system setting, as in SBB) ---- */
-  --ds-bg-page: light-dark(var(--ds-color-white), var(--ds-dark-page));
-  --ds-bg-subtle: light-dark(var(--ds-color-mist), var(--ds-dark-subtle));
-  --ds-bg-muted: light-dark(var(--ds-color-mist-deep), var(--ds-dark-muted));
-  --ds-bg-warn: light-dark(var(--ds-color-tan-soft), var(--ds-dark-subtle));
-  --ds-text: light-dark(var(--ds-color-ink), var(--ds-dark-text));
-  --ds-text-secondary: light-dark(var(--ds-color-ink-soft), var(--ds-dark-text-soft));
-  --ds-text-disabled: light-dark(var(--ds-color-slate), var(--ds-dark-border));
-  --ds-text-on-primary: light-dark(var(--ds-color-white), var(--ds-dark-page));
-  --ds-text-error: light-dark(var(--ds-color-coral-deep), var(--ds-dark-coral-text));
-  --ds-border-control: light-dark(var(--ds-color-slate), var(--ds-dark-border));
-  --ds-border-divider: light-dark(var(--ds-color-mist), var(--ds-dark-muted));
-  --ds-primary: light-dark(var(--ds-color-teal), var(--ds-dark-teal));
-  --ds-primary-hover: light-dark(var(--ds-color-teal-hover), var(--ds-dark-teal-hover));
-  --ds-primary-active: light-dark(var(--ds-color-teal-active), var(--ds-dark-teal-active));
-  --ds-status-info: var(--ds-primary);
-  --ds-status-success: var(--ds-primary);
-  --ds-status-warn: light-dark(var(--ds-color-tan-deep), var(--ds-dark-tan));
-  --ds-status-error: var(--ds-color-coral);
-  --ds-focus-color: light-dark(var(--ds-color-ink), var(--ds-dark-text));
-  --ds-shadow-color-1: light-dark(color-mix(in srgb, var(--ds-color-ink) 10%, transparent), color-mix(in srgb, black 30%, transparent));
-  --ds-shadow-color-2: light-dark(color-mix(in srgb, var(--ds-color-ink) 20%, transparent), color-mix(in srgb, black 40%, transparent));
+  /* ---- Semantic colour ---- */
+  --ds-bg-page: light-dark(var(--ds-color-paper), var(--ds-dark-paper));
+  --ds-bg-subtle: light-dark(var(--ds-color-paper-deep), var(--ds-dark-paper-deep));
+  --ds-bg-muted: light-dark(var(--ds-color-paper-muted), var(--ds-dark-paper-muted));
+  --ds-text: light-dark(var(--ds-color-ink), var(--ds-dark-ink));
+  --ds-text-secondary: light-dark(var(--ds-color-ink-soft), var(--ds-dark-ink-soft));
+  --ds-text-disabled: light-dark(var(--ds-color-line), var(--ds-dark-line));
+  --ds-text-on-primary: light-dark(var(--ds-color-cream), var(--ds-dark-paper));
+  --ds-text-error: light-dark(var(--ds-color-error), var(--ds-dark-error));
+  --ds-text-accent: light-dark(var(--ds-color-rose), var(--ds-dark-rose));
+  --ds-border-control: light-dark(var(--ds-color-line), var(--ds-dark-line));
+  --ds-border-divider: light-dark(var(--ds-color-hairline), var(--ds-dark-hairline));
+  --ds-primary: light-dark(var(--ds-color-rose), var(--ds-dark-rose));
+  --ds-primary-hover: light-dark(var(--ds-color-rose-hover), var(--ds-dark-rose-hover));
+  --ds-primary-active: light-dark(var(--ds-color-rose-active), var(--ds-dark-rose-active));
+  --ds-accent-fill: light-dark(var(--ds-color-rose-fill), var(--ds-dark-rose-fill));
+  --ds-sage-fill: light-dark(var(--ds-color-sage-fill), var(--ds-dark-sage-fill));
+  --ds-status-success: light-dark(var(--ds-color-forest), var(--ds-dark-forest));
+  --ds-status-warn: light-dark(var(--ds-color-olive), var(--ds-dark-olive));
+  --ds-status-error: light-dark(var(--ds-color-error), var(--ds-dark-error));
+  --ds-focus-color: light-dark(var(--ds-color-ink), var(--ds-dark-ink));
 
   /* ---- Typography ---- */
-  /* SBB's own font stack minus the licensed "SBB" face. */
-  --ds-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Display and reading serif: system faces with a transitional, print character. */
+  --ds-font-serif: "Iowan Old Style", "Baskerville", "Hoefler Text", "Palatino Linotype", Palatino, Georgia, serif;
+  --ds-font: "Avenir Next", "Avenir", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --ds-font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-  --ds-text-m: 1rem;          /* floor: SBB recommends >= 16px */
+  --ds-text-m: 1rem;          /* floor: nothing is set smaller than 16px */
   --ds-text-l: 1.125rem;      /* body for this product (older adults) */
-  --ds-text-xl: 1.25rem;
-  --ds-text-2x: 1.5rem;
-  --ds-text-3x: 2rem;
-  --ds-line-height-text: 1.75;
-  --ds-line-height-heading: 1.4;
-  --ds-letter-spacing-text: 0.03em;
-  --ds-letter-spacing-heading: 0em;
-  --ds-measure: 65ch;
+  --ds-text-xl: 1.375rem;
+  --ds-text-2x: 1.75rem;
+  --ds-text-3x: 2.25rem;
+  --ds-text-title: clamp(3.5rem, 7vw, 5.75rem);
+  --ds-line-height-text: 1.7;
+  --ds-line-height-heading: 1.15;
+  --ds-letter-spacing-text: 0.01em;
+  --ds-letter-spacing-label: 0.16em;   /* tracked small caps, as in the viz */
+  --ds-measure: 62ch;
 
-  /* ---- Spacing (SBB fixed scale, 4px grid) ---- */
+  /* ---- Spacing (4px grid) ---- */
   --ds-space-1: 0.25rem;
   --ds-space-2: 0.5rem;
   --ds-space-3: 0.75rem;
@@ -95,48 +100,36 @@
   --ds-size-s: 2.75rem;
   --ds-size-m: 3rem;
   --ds-size-l: 3.5rem;
-  --ds-size-xl: 7rem;         /* hold-to-talk */
 
-  /* ---- Shape ---- */
-  --ds-radius-2x: 0.25rem;
-  --ds-radius-4x: 0.5rem;     /* cards, form fields, notifications */
-  --ds-radius-6x: 0.75rem;
-  --ds-radius-8x: 1rem;       /* dialogs */
-  --ds-radius-pill: 999px;    /* buttons */
+  /* ---- Shape: rectilinear, like a printed plate ---- */
+  --ds-radius-2x: 0.125rem;
+  --ds-radius-4x: 0.25rem;
+  --ds-radius-6x: 0.25rem;
+  --ds-radius-pill: 0.125rem;
   --ds-border-1x: 0.0625rem;
   --ds-border-2x: 0.125rem;
   --ds-border-3x: 0.1875rem;
   --ds-border-4x: 0.25rem;
 
-  /* ---- Elevation (SBB level 3 and 9; layered, soft) ---- */
-  --ds-shadow-3: 0 0.125rem 1rem var(--ds-shadow-color-1), 0 0.0625rem 0.25rem var(--ds-shadow-color-2);
-  --ds-shadow-9: 0 1rem 8rem var(--ds-shadow-color-1), 0 0.25rem 2rem var(--ds-shadow-color-2);
-
   /* ---- Motion ---- */
   --ds-duration-fast: 0.12s;
-  --ds-duration-base: 0.16s;
-  --ds-duration-slow: 0.24s;
-  --ds-easing: cubic-bezier(0.47, 0.1, 1, 0.63);
+  --ds-duration-base: 0.18s;
+  --ds-duration-slow: 0.3s;
 
   /* ---- Focus ---- */
   --ds-focus-width: var(--ds-border-3x);
   --ds-focus-offset: 0.1875rem;
 
-  /* ---- Layout: 4 / 8 / 12 / 16 columns ---- */
+  /* ---- Layout ---- */
   --ds-gutter: 1rem;
   --ds-offset: 1.25rem;
-  --ds-page-max-width: 75rem;
 }
 
-/* Breakpoints: zero < 600px <= small < 1024px <= large < 1440px <= ultra */
 @media (min-width: 37.5rem) {
-  :root { --ds-gutter: 1.5rem; --ds-offset: 3rem; }
+  :root { --ds-gutter: 1.5rem; --ds-offset: 2rem; }
 }
 @media (min-width: 64rem) {
-  :root { --ds-gutter: 2rem; --ds-offset: 4rem; }
-}
-@media (min-width: 90rem) {
-  :root { --ds-offset: 7.5rem; }
+  :root { --ds-gutter: 2rem; --ds-offset: 3rem; }
 }
 
 /* Manual theme override (set by the header switch); otherwise the system setting applies. */

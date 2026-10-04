@@ -3,35 +3,35 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Claw dashboard</title>
+  <title>Claw</title>
   <script>try { const t = localStorage.getItem("claw-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
   <link rel="stylesheet" href="/static/tokens.css" />
   <style>
     * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
+    html { min-height: 100%; }
     body {
+      margin: 0; min-height: 100vh;
       font-family: var(--ds-font);
       font-size: var(--ds-text-l);
       line-height: var(--ds-line-height-text);
       letter-spacing: var(--ds-letter-spacing-text);
       background: var(--ds-bg-page);
       color: var(--ds-text);
-      display: flex;
-      flex-direction: column;
       accent-color: var(--ds-primary);
       caret-color: var(--ds-primary);
+      scrollbar-color: var(--ds-border-control) transparent;
     }
     ::selection { background: var(--ds-primary); color: var(--ds-text-on-primary); }
-    h1, h2, h3, h4 { line-height: var(--ds-line-height-heading); letter-spacing: var(--ds-letter-spacing-heading); }
+    h1, h2, h3, h4 { margin: 0; font-weight: 400; line-height: var(--ds-line-height-heading); }
     .sr-only {
       position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
     .skip-link {
-      position: absolute; left: var(--ds-space-4); top: -4rem; z-index: 10;
+      position: absolute; left: var(--ds-space-4); top: -5rem; z-index: 10;
       background: var(--ds-bg-page); color: var(--ds-text);
       padding: var(--ds-space-3) var(--ds-space-5); border-radius: var(--ds-radius-pill);
-      border: var(--ds-border-2x) solid var(--ds-text); font-weight: 700;
+      border: var(--ds-border-2x) solid var(--ds-text); font-weight: 600;
     }
     .skip-link:focus { top: var(--ds-space-4); }
     :where(a, button, input, summary, [tabindex]):focus-visible {
@@ -39,16 +39,30 @@
       outline-offset: var(--ds-focus-offset);
     }
 
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--ds-space-4);
-      padding: var(--ds-space-4) var(--ds-gutter);
-      border-bottom: var(--ds-border-1x) solid var(--ds-border-divider);
-      background: var(--ds-bg-page);
+    /* Tracked small caps: the viz's section voice. These are the headings themselves. */
+    .label, .brand, .tabs button, th {
+      font-family: var(--ds-font); font-size: var(--ds-text-m); font-weight: 600;
+      text-transform: uppercase; letter-spacing: var(--ds-letter-spacing-label); line-height: 1.4;
     }
-    header h1 { margin: 0; font-size: var(--ds-text-2x); font-weight: 700; }
+    .caption { font-family: var(--ds-font-serif); font-style: italic; font-size: 1.0625rem; color: var(--ds-text-secondary); margin: 0; }
+
+    /* ---- The sheet: one plate inside a double-line frame ---- */
+    .sheet {
+      position: relative; margin: var(--ds-space-3); min-height: calc(100vh - 1.5rem);
+      border: var(--ds-border-1x) solid var(--ds-border-control);
+      padding: calc(var(--ds-space-2) + var(--ds-offset)) var(--ds-offset) var(--ds-space-12);
+    }
+    .sheet::before {
+      content: ""; position: absolute; inset: var(--ds-space-2); pointer-events: none;
+      border: var(--ds-border-1x) solid var(--ds-border-divider);
+    }
+    .masthead {
+      position: relative; display: flex; align-items: center; justify-content: space-between;
+      gap: var(--ds-space-4); flex-wrap: wrap;
+      padding-bottom: var(--ds-space-3);
+    }
+    .brand { margin: 0; }
+    .header-tools { display: flex; align-items: center; gap: var(--ds-space-5); flex-wrap: wrap; justify-content: flex-end; }
     #status, #vstatus { font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
     #status::before, #vstatus::before {
       content: ""; display: inline-block; width: 0.625rem; height: 0.625rem;
@@ -57,18 +71,17 @@
     }
     #vstatus:empty { display: none; }
     #status.ok::before, #vstatus.ok::before { background: var(--ds-status-success); }
-    #status.bad, #vstatus.bad { color: var(--ds-text-error); font-weight: 700; }
+    #status.bad, #vstatus.bad { color: var(--ds-text-error); font-weight: 600; }
     #status.bad::before, #vstatus.bad::before { background: var(--ds-status-error); }
 
-    .header-tools { display: flex; align-items: center; gap: var(--ds-space-5); flex-wrap: wrap; justify-content: flex-end; }
     button.switch {
       background: transparent; color: var(--ds-text); border-color: transparent; padding-inline: var(--ds-space-2);
-      min-height: var(--ds-size-s); gap: var(--ds-space-3); font-size: var(--ds-text-m); box-shadow: none;
+      min-height: var(--ds-size-s); gap: var(--ds-space-3); font-size: var(--ds-text-m); font-weight: 400; letter-spacing: 0.02em;
     }
-    button.switch:hover:not(:disabled) { background: var(--ds-bg-subtle); color: var(--ds-text); border-color: transparent; box-shadow: none; }
+    button.switch:hover:not(:disabled) { background: var(--ds-bg-subtle); color: var(--ds-text); border-color: transparent; }
     button.switch:active:not(:disabled) { background: var(--ds-bg-muted); color: var(--ds-text); border-color: transparent; }
     .switch-track {
-      position: relative; flex: none; width: 3rem; height: 1.75rem; border-radius: var(--ds-radius-pill);
+      position: relative; flex: none; width: 3rem; height: 1.75rem; border-radius: 999px;
       border: var(--ds-border-2x) solid var(--ds-border-control); background: var(--ds-bg-subtle);
       transition: background-color var(--ds-duration-base) ease-out, border-color var(--ds-duration-base) ease-out;
     }
@@ -80,7 +93,7 @@
     button.switch[data-dark="true"] .switch-track { background: var(--ds-primary); border-color: var(--ds-primary); }
     button.switch[data-dark="true"] .switch-knob { transform: translate(1.1875rem, -50%); background: var(--ds-text-on-primary); }
 
-    /* ---- Buttons: pill, 2px border, SBB sizes (m 48px default, l 56px) ---- */
+    /* ---- Buttons: rectilinear, 2px border, 48px default ---- */
     button {
       display: inline-flex; align-items: center; justify-content: center; gap: var(--ds-space-2);
       min-height: var(--ds-size-m);
@@ -89,66 +102,133 @@
       border-radius: var(--ds-radius-pill);
       background: var(--ds-primary);
       color: var(--ds-text-on-primary);
-      font: inherit; font-weight: 700; letter-spacing: inherit; line-height: 1.4;
+      font: inherit; font-weight: 600; letter-spacing: 0.04em; line-height: 1.3;
       cursor: pointer;
-      transition: background-color var(--ds-duration-base) ease-out, border-color var(--ds-duration-base) ease-out, box-shadow var(--ds-duration-base) ease-out;
+      transition: background-color var(--ds-duration-base) ease-out, border-color var(--ds-duration-base) ease-out, color var(--ds-duration-base) ease-out;
     }
-    button:hover:not(:disabled) { background: var(--ds-primary-hover); border-color: var(--ds-primary-hover); box-shadow: var(--ds-shadow-3); }
+    button:hover:not(:disabled) { background: var(--ds-primary-hover); border-color: var(--ds-primary-hover); }
     button:active:not(:disabled) { background: var(--ds-primary-active); border-color: var(--ds-primary-active); }
     button:disabled {
       background: var(--ds-bg-subtle); color: var(--ds-text-disabled);
       border: var(--ds-border-1x) dashed var(--ds-border-control); cursor: not-allowed;
     }
     button.secondary {
-      background: var(--ds-bg-page); color: var(--ds-text); border-color: var(--ds-border-control);
+      background: transparent; color: var(--ds-text); border-color: var(--ds-border-control);
     }
-    button.secondary:hover:not(:disabled) { background: var(--ds-bg-muted); border-color: var(--ds-text); box-shadow: none; }
-    button.secondary:active:not(:disabled) { background: var(--ds-bg-muted); }
+    button.secondary:hover:not(:disabled) { background: var(--ds-bg-subtle); border-color: var(--ds-text); color: var(--ds-text); }
+    button.secondary:active:not(:disabled) { background: var(--ds-bg-muted); color: var(--ds-text); border-color: var(--ds-text); }
 
-    /* ---- Chat ---- */
+    /* ---- Plate layout: title block / the dial / the list ---- */
+    .plate { position: relative; display: grid; gap: var(--ds-space-12) var(--ds-space-12); grid-template-columns: minmax(0, 1fr); padding-top: var(--ds-space-6); }
+    .intro { grid-area: intro; min-width: 0; }
+    #chat { grid-area: talk; min-width: 0; display: flex; flex-direction: column; }
+    .plate { grid-template-areas: "intro" "talk"; }
+    @media (min-width: 48rem) {
+      .plate { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "talk"; }
+      .intro { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; column-gap: var(--ds-space-8); }
+      .intro .rule, .intro h1, .intro .lede { grid-column: 1; }
+      .today { grid-column: 2; grid-row: 1 / -1; align-self: end; margin-bottom: var(--ds-space-8); }
+    }
+    @media (min-width: 80rem) {
+      .plate { grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); grid-template-areas: "intro talk"; }
+      .intro { display: block; }
+    }
+
+    /* ---- Title block ---- */
+    .rule { display: block; width: 6rem; height: var(--ds-border-2x); background: var(--ds-accent-fill); margin-bottom: var(--ds-space-4); }
+    h1 {
+      font-family: var(--ds-font-serif); font-size: var(--ds-text-title); font-weight: 400;
+      line-height: 1.02; letter-spacing: -0.01em; color: var(--ds-text-accent);
+      overflow-wrap: break-word; text-wrap: balance; margin-bottom: var(--ds-space-6);
+    }
+    .lede { max-width: 28ch; margin: 0 0 var(--ds-space-8); color: var(--ds-text-secondary); font-size: var(--ds-text-l); }
+    .today { max-width: 22rem; }
+    .today .label { margin: 0 0 var(--ds-space-3); padding-bottom: var(--ds-space-2); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); }
+    .clock { font-family: var(--ds-font-serif); font-size: var(--ds-text-3x); line-height: 1.2; font-variant-numeric: lining-nums tabular-nums; }
+
+    /* ---- Tabs ---- */
+    .tabs { display: flex; gap: var(--ds-space-6); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); margin-bottom: var(--ds-space-6); }
+    .tabs button {
+      min-height: var(--ds-size-l); padding: 0 var(--ds-space-1); border-radius: 0; background: transparent; color: var(--ds-text-secondary);
+      border: 0; border-bottom: var(--ds-border-3x) solid transparent; margin-bottom: -0.0625rem;
+    }
+    .tabs button:hover:not(:disabled) { background: transparent; color: var(--ds-text); border-color: transparent; border-bottom-color: var(--ds-border-divider); }
+    .tabs button.active { color: var(--ds-text-accent); border-bottom-color: var(--ds-primary); }
+    .view { display: flex; flex-direction: column; }
+    .view[hidden] { display: none; }
+
+    /* ---- The dial: ticks and rings drawn in SVG, the hub is the talk button ---- */
+    #voice-foot {
+      display: flex; flex-direction: column; align-items: center; gap: var(--ds-space-3);
+      padding-bottom: var(--ds-space-8); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); margin-bottom: var(--ds-space-6);
+    }
+    .dial { position: relative; width: clamp(15rem, 30vw, 21rem); aspect-ratio: 1; display: grid; place-items: center; margin-bottom: var(--ds-space-2); }
+    .dial-art { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .dial-art .ring { fill: none; stroke: var(--ds-border-divider); stroke-width: 1; }
+    .dial-art .ring.inner { stroke: var(--ds-accent-fill); }
+    .dial-art .tick { stroke: var(--ds-border-control); stroke-width: 1; opacity: 0.55; }
+    .dial-art .tick.major { opacity: 1; stroke-width: 1.5; }
+    .dial-art .sweep {
+      fill: none; stroke: var(--ds-accent-fill); stroke-width: 4; stroke-linecap: butt; opacity: 0;
+      transform-box: fill-box; transform-origin: center;
+      transition: opacity var(--ds-duration-slow) ease-out;
+    }
+    .dial:has(#talk.recording) .sweep { opacity: 1; animation: dial-sweep 7s linear infinite; }
+    @keyframes dial-sweep { to { transform: rotate(360deg); } }
+    #talk {
+      position: relative; width: 60%; aspect-ratio: 1; height: auto; border-radius: 50%; padding: var(--ds-space-4);
+      font-family: var(--ds-font-serif); font-size: var(--ds-text-2x); font-weight: 400; letter-spacing: 0; line-height: 1.15;
+      text-wrap: balance; text-align: center; touch-action: none; user-select: none; -webkit-touch-callout: none;
+    }
+    #talk.recording { background: var(--ds-text); border-color: var(--ds-text); color: var(--ds-bg-page); }
+    #cancel-talk { -webkit-touch-callout: none; }
+    #cancel-talk[hidden] { display: none; }
+    #hint { max-width: 36ch; text-align: center; font-family: var(--ds-font-serif); font-style: italic; font-size: 1.0625rem; color: var(--ds-text-secondary); }
+
+    /* ---- Conversation ---- */
     #log, #vlog {
-      flex: 1; overflow: auto;
-      padding: var(--ds-space-4) var(--ds-gutter);
+      overflow: auto; max-height: 28rem;
       display: flex; flex-direction: column; gap: var(--ds-space-4);
+      padding-inline-end: var(--ds-space-2);
     }
-    .msg {
-      max-width: var(--ds-measure);
-      padding: var(--ds-space-3) var(--ds-space-5);
-      border-radius: var(--ds-radius-6x);
-      white-space: pre-wrap; word-break: break-word;
+    .msg { max-width: var(--ds-measure); white-space: pre-wrap; word-break: break-word; }
+    .msg.user {
+      align-self: flex-end; padding: var(--ds-space-3) var(--ds-space-5);
+      background: var(--ds-bg-subtle); border: var(--ds-border-1x) solid var(--ds-border-divider); border-radius: var(--ds-radius-4x);
     }
-    .msg.user { align-self: flex-end; background: var(--ds-bg-muted); }
-    .msg.assistant { align-self: flex-start; background: var(--ds-bg-page); border: var(--ds-border-2x) solid var(--ds-border-divider); }
+    .msg.assistant {
+      align-self: flex-start; font-family: var(--ds-font-serif); font-size: 1.1875rem; line-height: 1.65;
+      padding: var(--ds-space-1) 0 var(--ds-space-1) var(--ds-space-4); border-left: var(--ds-border-1x) solid var(--ds-text-accent);
+    }
     .msg.assistant code {
       font-family: var(--ds-font-mono); font-size: var(--ds-text-m);
       background: var(--ds-bg-subtle); padding: 0 var(--ds-space-1); border-radius: var(--ds-radius-2x);
     }
-    .msg.meta {
-      align-self: center; border: 0; background: transparent;
-      color: var(--ds-text-secondary); font-size: var(--ds-text-m); padding: var(--ds-space-1);
-    }
+    .msg.meta { align-self: center; font-family: var(--ds-font-serif); font-style: italic; color: var(--ds-text-secondary); padding: var(--ds-space-1); }
     .msg.user.pending { font-style: italic; }
-    .thinking { align-self: flex-start; color: var(--ds-text-secondary); font-size: var(--ds-text-m); padding: 0 var(--ds-space-1); }
+    .thinking { align-self: flex-start; font-family: var(--ds-font-serif); font-style: italic; color: var(--ds-text-secondary); padding: 0 var(--ds-space-4); }
     .turn { display: flex; flex-direction: column; gap: var(--ds-space-4); }
 
     details.tools {
       align-self: flex-start; width: min(var(--ds-measure), 100%);
-      border: var(--ds-border-2x) solid var(--ds-border-divider);
-      border-radius: var(--ds-radius-4x); background: var(--ds-bg-subtle);
+      border-top: var(--ds-border-1x) solid var(--ds-border-divider); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider);
     }
     details.tools > summary {
-      cursor: pointer; padding: var(--ds-space-2) var(--ds-space-4);
-      min-height: var(--ds-size-s); display: flex; align-items: center;
-      font-size: var(--ds-text-m); font-weight: 700; color: var(--ds-text);
+      cursor: pointer; padding: var(--ds-space-2) 0; min-height: var(--ds-size-s);
+      display: flex; align-items: center; gap: var(--ds-space-3);
+      font-size: var(--ds-text-m); font-weight: 600; color: var(--ds-text);
       list-style: none; user-select: none;
     }
     details.tools > summary::-webkit-details-marker { display: none; }
-    details.tools > summary::before { content: "▸"; margin-right: var(--ds-space-2); color: var(--ds-text-secondary); }
-    details.tools[open] > summary::before { content: "▾"; }
-    details.tools.running > summary { color: var(--ds-text); }
-    .tool-entry { border-top: var(--ds-border-1x) solid var(--ds-border-divider); padding: var(--ds-space-3) var(--ds-space-4); }
-    .tool-entry .name { font-family: var(--ds-font-mono); font-size: var(--ds-text-m); font-weight: 700; margin-bottom: var(--ds-space-1); }
-    .tool-entry .label { font-size: var(--ds-text-m); font-weight: 700; color: var(--ds-text-secondary); margin: var(--ds-space-2) 0 var(--ds-space-1); }
+    details.tools > summary::before {
+      content: ""; flex: none; width: 0.5rem; height: 0.5rem;
+      border-right: var(--ds-border-2x) solid var(--ds-text-secondary); border-bottom: var(--ds-border-2x) solid var(--ds-text-secondary);
+      transform: rotate(-45deg); transition: transform var(--ds-duration-base) ease-out;
+    }
+    details.tools[open] > summary::before { transform: rotate(45deg); }
+    .tool-entry { border-top: var(--ds-border-1x) solid var(--ds-border-divider); padding: var(--ds-space-3) 0; }
+    .tool-entry .name { font-family: var(--ds-font-mono); font-size: var(--ds-text-m); font-weight: 600; margin-bottom: var(--ds-space-1); }
+    .tool-entry .label { margin: var(--ds-space-2) 0 var(--ds-space-1); color: var(--ds-text-secondary); }
     .tool-entry pre {
       margin: 0; white-space: pre-wrap; word-break: break-word;
       font: var(--ds-text-m)/1.5 var(--ds-font-mono); max-height: 18rem; overflow: auto;
@@ -156,12 +236,11 @@
 
     form {
       display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ds-space-2) var(--ds-space-3);
-      padding: var(--ds-space-4) var(--ds-gutter);
+      padding-top: var(--ds-space-6); margin-top: var(--ds-space-4);
       border-top: var(--ds-border-1x) solid var(--ds-border-divider);
-      background: var(--ds-bg-page);
     }
     .field { flex: 1; min-width: 12rem; display: flex; flex-direction: column; gap: var(--ds-space-1); }
-    .field label { font-weight: 700; font-size: var(--ds-text-m); }
+    .field label { font-weight: 600; font-size: var(--ds-text-m); }
     input[type="text"] {
       width: 100%; min-height: var(--ds-size-m);
       border: var(--ds-border-1x) solid var(--ds-border-control);
@@ -174,152 +253,179 @@
     input[type="text"]:hover { border-color: var(--ds-text); }
     #send { min-height: var(--ds-size-l); padding-inline: var(--ds-space-8); }
 
-    /* ---- Shell ---- */
-    .layout {
-      flex: 1; min-height: 0; display: grid;
-      grid-template-columns: 17rem minmax(0, 1fr) minmax(24rem, 32rem);
-    }
-    aside#connectors {
-      border-right: var(--ds-border-1x) solid var(--ds-border-divider);
-      background: var(--ds-bg-subtle);
-      padding: var(--ds-space-4); overflow: auto;
-    }
-    aside#connectors h2, #panels h2.empty-title { margin: 0 0 var(--ds-space-3); font-size: var(--ds-text-xl); font-weight: 700; }
+    /* ---- The list: connectors as ranked rows, opened data below ---- */
+    #connectors h2, #panels h2.empty-title { font-family: var(--ds-font); }
+    #connectors > .label { margin: 0 0 var(--ds-space-3); padding-bottom: var(--ds-space-2); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); }
     .connector {
       display: block; width: 100%; text-align: left; justify-content: flex-start;
-      background: var(--ds-bg-page); color: var(--ds-text);
-      border: var(--ds-border-2x) solid var(--ds-border-divider);
-      border-radius: var(--ds-radius-4x);
-      padding: var(--ds-space-3) var(--ds-space-4); margin-bottom: var(--ds-space-3);
-      font-weight: 400;
+      background: transparent; color: var(--ds-text);
+      border: 0; border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); border-radius: 0;
+      padding: var(--ds-space-3) var(--ds-space-2); font-weight: 400; letter-spacing: inherit;
     }
-    .connector:hover:not(:disabled) { background: var(--ds-bg-page); color: var(--ds-text); border-color: var(--ds-text); box-shadow: var(--ds-shadow-3); }
-    .connector:active:not(:disabled) { background: var(--ds-bg-muted); color: var(--ds-text); border-color: var(--ds-text); }
-    .connector.open { border-color: var(--ds-primary); border-width: var(--ds-border-3x); padding: calc(var(--ds-space-3) - 0.0625rem) calc(var(--ds-space-4) - 0.0625rem); }
-    .connector .cname { font-weight: 700; display: flex; align-items: center; gap: var(--ds-space-2); }
-    .connector .cdesc { font-size: var(--ds-text-m); color: var(--ds-text-secondary); margin-top: var(--ds-space-1); }
-    .connector .cstate { font-size: var(--ds-text-m); font-weight: 700; margin-top: var(--ds-space-1); }
-    .connector-add-note { font-size: var(--ds-text-m); color: var(--ds-text-secondary); margin-top: var(--ds-space-3); }
+    .connector:hover:not(:disabled) { background: var(--ds-bg-subtle); color: var(--ds-text); border-color: transparent; border-bottom-color: var(--ds-border-divider); }
+    .connector:active:not(:disabled) { background: var(--ds-bg-muted); color: var(--ds-text); border-color: transparent; border-bottom-color: var(--ds-border-divider); }
+    .connector.open { border-bottom: var(--ds-border-2x) solid var(--ds-primary); }
+    .connector.open .cname { color: var(--ds-text-accent); }
+    .connector .cname { font-family: var(--ds-font-serif); font-size: var(--ds-text-xl); display: flex; align-items: center; gap: var(--ds-space-3); }
+    .connector .cdesc { font-size: var(--ds-text-m); color: var(--ds-text-secondary); margin-top: var(--ds-space-1); padding-left: 1.5rem; }
+    .connector .cstate { font-size: var(--ds-text-m); font-weight: 600; margin-top: var(--ds-space-1); padding-left: 1.5rem; }
+    #connector-add { margin-top: var(--ds-space-4); }
+    .connector-add-note { font-family: var(--ds-font-serif); font-style: italic; font-size: 1.0625rem; color: var(--ds-text-secondary); margin-top: var(--ds-space-3); }
     .dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--ds-border-control); display: inline-block; flex: none; }
     .dot.live { background: var(--ds-status-success); }
     .dot.mock { background: var(--ds-status-warn); }
     .dot.error { background: var(--ds-status-error); }
 
-    #panels { overflow: auto; padding: var(--ds-space-4) var(--ds-gutter); display: flex; flex-direction: column; gap: var(--ds-gutter); min-width: 0; }
-    #widgets { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--ds-gutter); }
-    .widget { background: var(--ds-bg-subtle); border-radius: var(--ds-radius-4x); padding: var(--ds-space-4) var(--ds-space-5); }
-    .widget .wlabel { font-size: var(--ds-text-m); font-weight: 700; color: var(--ds-text-secondary); }
-    .widget .wvalue { font-size: var(--ds-text-3x); font-weight: 700; line-height: var(--ds-line-height-heading); font-variant-numeric: tabular-nums; }
-    .widget .wsub { font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
-    .empty { color: var(--ds-text-secondary); max-width: var(--ds-measure); }
-    .empty strong { color: var(--ds-text); }
-    .panel { background: var(--ds-bg-page); border: var(--ds-border-2x) solid var(--ds-border-divider); border-radius: var(--ds-radius-4x); overflow: hidden; }
-    .panel-head {
-      display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap;
-      padding: var(--ds-space-3) var(--ds-space-4); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider);
-    }
-    .panel-head h3 { margin: 0; font-size: var(--ds-text-xl); }
+    #panels { margin-top: var(--ds-space-8); display: flex; flex-direction: column; gap: var(--ds-space-8); min-width: 0; }
+    .empty { font-family: var(--ds-font-serif); font-size: 1.125rem; color: var(--ds-text-secondary); max-width: var(--ds-measure); }
+    .empty strong { color: var(--ds-text); font-weight: 600; }
+    .panel { border-top: var(--ds-border-1x) solid var(--ds-text); padding-top: var(--ds-space-3); }
+    .panel-head { display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; margin-bottom: var(--ds-space-2); }
+    .panel-head h3 { font-family: var(--ds-font-serif); font-size: var(--ds-text-2x); }
     .panel-head .spacer { flex: 1; }
-    .panel-head button { min-height: var(--ds-size-s); padding-inline: var(--ds-space-4); background: var(--ds-bg-page); color: var(--ds-text); border-color: var(--ds-border-control); }
-    .panel-head button:hover:not(:disabled) { background: var(--ds-bg-muted); border-color: var(--ds-text); box-shadow: none; color: var(--ds-text); }
+    .panel-head button { min-height: var(--ds-size-s); padding-inline: var(--ds-space-4); background: transparent; color: var(--ds-text); border-color: var(--ds-border-control); font-weight: 400; }
+    .panel-head button:hover:not(:disabled) { background: var(--ds-bg-subtle); border-color: var(--ds-text); color: var(--ds-text); }
     .badge {
-      font-size: var(--ds-text-m); font-weight: 700; padding: 0 var(--ds-space-3);
-      border-radius: var(--ds-radius-2x); border: var(--ds-border-1x) solid var(--ds-border-control);
-      color: var(--ds-text); background: var(--ds-bg-subtle);
+      font-size: var(--ds-text-m); font-weight: 600; padding: 0 var(--ds-space-3);
+      border-radius: var(--ds-radius-2x); border: var(--ds-border-1x) solid var(--ds-border-control); color: var(--ds-text);
     }
-    .badge.live { border-color: var(--ds-status-success); }
-    .badge.mock { border-color: var(--ds-status-warn); background: var(--ds-bg-warn); }
-    .badge.error { border-color: var(--ds-status-error); color: var(--ds-text-error); background: var(--ds-bg-page); }
-    .panel-summary { padding: var(--ds-space-3) var(--ds-space-4) 0; }
-    .panel-source { padding: var(--ds-space-1) var(--ds-space-4) var(--ds-space-2); font-size: var(--ds-text-m); color: var(--ds-text-secondary); }
-    .panel-body { padding: 0 var(--ds-space-4) var(--ds-space-4); display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
-    .panel-body h4 { margin: 0 0 var(--ds-space-1); font-size: var(--ds-text-l); }
-    .tbl-wrap { overflow: auto; max-height: 18rem; border: var(--ds-border-1x) solid var(--ds-border-control); border-radius: var(--ds-radius-4x); }
-    table { border-collapse: collapse; width: 100%; font-size: var(--ds-text-m); line-height: 1.5; }
-    th, td { text-align: left; padding: var(--ds-space-2) var(--ds-space-3); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); vertical-align: top; }
-    th { position: sticky; top: 0; background: var(--ds-bg-subtle); font-weight: 700; }
+    .badge.live { border-color: var(--ds-status-success); color: var(--ds-status-success); }
+    .badge.mock { border-color: var(--ds-status-warn); color: var(--ds-status-warn); }
+    .badge.error { border-color: var(--ds-status-error); color: var(--ds-text-error); }
+    .panel-summary { margin: 0 0 var(--ds-space-1); }
+    .panel-source { font-family: var(--ds-font-serif); font-style: italic; font-size: 1.0625rem; color: var(--ds-text-secondary); margin-bottom: var(--ds-space-4); }
+    .panel-body { display: grid; gap: var(--ds-space-6); grid-template-columns: minmax(0, 1fr); }
+    .panel-body h4 { font-family: var(--ds-font-serif); font-size: var(--ds-text-xl); margin: 0 0 var(--ds-space-2); }
+    .tbl-wrap { overflow-x: auto; border-top: var(--ds-border-1x) solid var(--ds-border-divider); }
+    table { border-collapse: collapse; width: 100%; font-size: var(--ds-text-m); line-height: 1.5; font-variant-numeric: lining-nums tabular-nums; }
+    th, td { text-align: left; padding: var(--ds-space-2) var(--ds-space-3) var(--ds-space-2) 0; border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); vertical-align: top; }
+    th { letter-spacing: 0.1em; color: var(--ds-text-secondary); white-space: nowrap; }
     tr:last-child td { border-bottom: 0; }
-    td.flag-H, td.flag-HH, td.flag-L, td.flag-LL { color: var(--ds-text-error); font-weight: 700; }
-    .loading { padding: var(--ds-space-4); color: var(--ds-text-secondary); }
+    td.flag-H, td.flag-HH, td.flag-L, td.flag-LL { color: var(--ds-text-error); font-weight: 600; }
+    .loading { padding: var(--ds-space-4) 0; font-family: var(--ds-font-serif); font-style: italic; color: var(--ds-text-secondary); }
 
-    section#chat { display: flex; flex-direction: column; min-height: 0; border-left: var(--ds-border-1x) solid var(--ds-border-divider); }
-    .tabs { display: flex; border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); background: var(--ds-bg-page); }
-    .tabs button {
-      flex: 1; min-height: var(--ds-size-l); border-radius: 0; background: transparent; color: var(--ds-text-secondary);
-      border: 0; border-bottom: var(--ds-border-4x) solid transparent; box-shadow: none;
-    }
-    .tabs button:hover:not(:disabled) { background: var(--ds-bg-subtle); color: var(--ds-text); box-shadow: none; border-color: transparent; border-bottom-color: var(--ds-bg-muted); }
-    .tabs button.active { color: var(--ds-text); border-bottom-color: var(--ds-primary); }
-    .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .view[hidden] { display: none; }
-    #voice-foot {
-      display: flex; flex-direction: column; align-items: center; gap: var(--ds-space-2);
-      padding: var(--ds-space-6) var(--ds-gutter); border-top: var(--ds-border-1x) solid var(--ds-border-divider); background: var(--ds-bg-page);
-    }
-    #talk { width: var(--ds-size-xl); height: var(--ds-size-xl); border-radius: 50%; padding: 0; touch-action: none; user-select: none; }
-    #talk.recording { background: var(--ds-text); border-color: var(--ds-text); }
-    #hint { color: var(--ds-text-secondary); font-size: var(--ds-text-m); text-align: center; }
-
-    @media (max-width: 63.9375rem) {
-      /* Single column: the page scrolls instead of squeezing each region. */
-      html, body { height: auto; min-height: 100%; }
-      .layout { display: flex; flex-direction: column; overflow: visible; }
-      aside#connectors { border-right: 0; border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); overflow: visible; }
-      #panels { overflow: visible; }
-      section#chat { border-left: 0; border-top: var(--ds-border-1x) solid var(--ds-border-divider); min-height: 36rem; }
-      #log, #vlog { max-height: 32rem; }
-    }
     @media (max-width: 37.4375rem) {
+      .sheet { margin: var(--ds-space-2); }
+      .sheet::before { inset: 0.375rem; }
       .field { flex-basis: 100%; }
       #send { flex: 1; }
+      .tabs { gap: var(--ds-space-4); }
     }
     @media (prefers-reduced-motion: reduce) {
       * { transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+      .dial:has(#talk.recording) .sweep { animation: none; }
     }
     @media (forced-colors: active) {
       button { border: var(--ds-border-2x) solid ButtonText; }
       .connector.open { outline: var(--ds-border-3x) solid Highlight; }
+      .dial-art .tick, .dial-art .ring { stroke: CanvasText; }
     }
   </style>
 </head>
 <body>
-  <a class="skip-link" href="#panels">Skip to dashboard</a>
-  <header>
-    <h1>Claw dashboard</h1>
+  <div class="sheet">
+  <a class="skip-link" href="#chat">Skip to talk</a>
+  <header class="masthead">
+    <p class="brand">Claw</p>
     <div class="header-tools">
       <button id="theme-switch" class="switch" type="button" data-dark="false"><span class="switch-label" id="theme-switch-label">Dark mode</span><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></button>
       <span id="status" role="status">Connecting…</span>
     </div>
   </header>
-  <div class="layout">
-    <aside id="connectors" aria-labelledby="connectors-title">
-      <h2 id="connectors-title">Connectors</h2>
-      <div id="connector-list"></div>
-      <button id="connector-add" class="secondary" type="button" aria-expanded="false" aria-controls="connector-add-note">Add a connector</button>
-      <div id="connector-add-note" class="connector-add-note" hidden>More connectors can be added here, such as email, fitness, or music. Ask the team to hook one up.</div>
-    </aside>
-    <main id="panels">
-      <div id="widgets">
-        <div class="widget">
-          <h2 class="wvalue">Hiya, Rishi</h2>
-        </div>
-        <div class="widget">
-          <div class="wlabel">Time</div>
-          <div class="wvalue" id="clock-time"></div>
-          <div class="wsub" id="clock-date"></div>
-        </div>
+  <main class="plate">
+    <section class="intro" aria-labelledby="hello">
+      <span class="rule" aria-hidden="true"></span>
+      <h1 id="hello">Hiya, Rishi</h1>
+      <p class="lede">Tap the dial and tell Claw what you need.</p>
+      <div class="today">
+        <h2 class="label">Today</h2>
+        <div class="clock" id="clock-time"></div>
+        <p class="caption" id="clock-date"></p>
       </div>
-      <div id="empty" class="empty">
-        <h2 class="empty-title">Dashboard</h2>
-        Pick a connector on the left, or ask in the chat. Mention <strong>nessie</strong>
-        to pull up the Capital One mock banking data, or <strong>health</strong> to pull
-        up patient records from FinchNode.
-      </div>
-    </main>
+    </section>
     <section id="chat" aria-label="Chat and voice">
       <div class="tabs" role="tablist" aria-label="How to talk to Claw">
-        <button type="button" id="tab-chat" role="tab" aria-selected="false" aria-controls="chat-view">Chat</button>
         <button type="button" id="tab-voice" class="active" role="tab" aria-selected="true" aria-controls="voice-view">Voice</button>
+        <button type="button" id="tab-chat" role="tab" aria-selected="false" aria-controls="chat-view">Chat</button>
+        <button type="button" id="tab-connectors" role="tab" aria-selected="false" aria-controls="connectors-view">Connectors</button>
+      </div>
+      <div id="voice-view" class="view" role="tabpanel" aria-labelledby="tab-voice">
+        <div id="voice-foot">
+          <div class="dial">
+            <svg class="dial-art" viewBox="0 0 320 320" aria-hidden="true" focusable="false">
+              <circle class="ring" cx="160" cy="160" r="158"/>
+              <circle class="ring" cx="160" cy="160" r="150"/>
+          <line class="tick major" x1="160.00" y1="12.00" x2="160.00" y2="28.00"/>
+          <line class="tick" x1="175.47" y1="12.81" x2="174.63" y2="20.77"/>
+          <line class="tick" x1="190.77" y1="15.23" x2="189.11" y2="23.06"/>
+          <line class="tick" x1="205.73" y1="19.24" x2="203.26" y2="26.85"/>
+          <line class="tick" x1="220.20" y1="24.80" x2="216.94" y2="32.10"/>
+          <line class="tick major" x1="234.00" y1="31.83" x2="226.00" y2="45.68"/>
+          <line class="tick" x1="246.99" y1="40.27" x2="242.29" y2="46.74"/>
+          <line class="tick" x1="259.03" y1="50.01" x2="253.68" y2="55.96"/>
+          <line class="tick" x1="269.99" y1="60.97" x2="264.04" y2="66.32"/>
+          <line class="tick" x1="279.73" y1="73.01" x2="273.26" y2="77.71"/>
+          <line class="tick major" x1="288.17" y1="86.00" x2="274.32" y2="94.00"/>
+          <line class="tick" x1="295.20" y1="99.80" x2="287.90" y2="103.06"/>
+          <line class="tick" x1="300.76" y1="114.27" x2="293.15" y2="116.74"/>
+          <line class="tick" x1="304.77" y1="129.23" x2="296.94" y2="130.89"/>
+          <line class="tick" x1="307.19" y1="144.53" x2="299.23" y2="145.37"/>
+          <line class="tick major" x1="308.00" y1="160.00" x2="292.00" y2="160.00"/>
+          <line class="tick" x1="307.19" y1="175.47" x2="299.23" y2="174.63"/>
+          <line class="tick" x1="304.77" y1="190.77" x2="296.94" y2="189.11"/>
+          <line class="tick" x1="300.76" y1="205.73" x2="293.15" y2="203.26"/>
+          <line class="tick" x1="295.20" y1="220.20" x2="287.90" y2="216.94"/>
+          <line class="tick major" x1="288.17" y1="234.00" x2="274.32" y2="226.00"/>
+          <line class="tick" x1="279.73" y1="246.99" x2="273.26" y2="242.29"/>
+          <line class="tick" x1="269.99" y1="259.03" x2="264.04" y2="253.68"/>
+          <line class="tick" x1="259.03" y1="269.99" x2="253.68" y2="264.04"/>
+          <line class="tick" x1="246.99" y1="279.73" x2="242.29" y2="273.26"/>
+          <line class="tick major" x1="234.00" y1="288.17" x2="226.00" y2="274.32"/>
+          <line class="tick" x1="220.20" y1="295.20" x2="216.94" y2="287.90"/>
+          <line class="tick" x1="205.73" y1="300.76" x2="203.26" y2="293.15"/>
+          <line class="tick" x1="190.77" y1="304.77" x2="189.11" y2="296.94"/>
+          <line class="tick" x1="175.47" y1="307.19" x2="174.63" y2="299.23"/>
+          <line class="tick major" x1="160.00" y1="308.00" x2="160.00" y2="292.00"/>
+          <line class="tick" x1="144.53" y1="307.19" x2="145.37" y2="299.23"/>
+          <line class="tick" x1="129.23" y1="304.77" x2="130.89" y2="296.94"/>
+          <line class="tick" x1="114.27" y1="300.76" x2="116.74" y2="293.15"/>
+          <line class="tick" x1="99.80" y1="295.20" x2="103.06" y2="287.90"/>
+          <line class="tick major" x1="86.00" y1="288.17" x2="94.00" y2="274.32"/>
+          <line class="tick" x1="73.01" y1="279.73" x2="77.71" y2="273.26"/>
+          <line class="tick" x1="60.97" y1="269.99" x2="66.32" y2="264.04"/>
+          <line class="tick" x1="50.01" y1="259.03" x2="55.96" y2="253.68"/>
+          <line class="tick" x1="40.27" y1="246.99" x2="46.74" y2="242.29"/>
+          <line class="tick major" x1="31.83" y1="234.00" x2="45.68" y2="226.00"/>
+          <line class="tick" x1="24.80" y1="220.20" x2="32.10" y2="216.94"/>
+          <line class="tick" x1="19.24" y1="205.73" x2="26.85" y2="203.26"/>
+          <line class="tick" x1="15.23" y1="190.77" x2="23.06" y2="189.11"/>
+          <line class="tick" x1="12.81" y1="175.47" x2="20.77" y2="174.63"/>
+          <line class="tick major" x1="12.00" y1="160.00" x2="28.00" y2="160.00"/>
+          <line class="tick" x1="12.81" y1="144.53" x2="20.77" y2="145.37"/>
+          <line class="tick" x1="15.23" y1="129.23" x2="23.06" y2="130.89"/>
+          <line class="tick" x1="19.24" y1="114.27" x2="26.85" y2="116.74"/>
+          <line class="tick" x1="24.80" y1="99.80" x2="32.10" y2="103.06"/>
+          <line class="tick major" x1="31.83" y1="86.00" x2="45.68" y2="94.00"/>
+          <line class="tick" x1="40.27" y1="73.01" x2="46.74" y2="77.71"/>
+          <line class="tick" x1="50.01" y1="60.97" x2="55.96" y2="66.32"/>
+          <line class="tick" x1="60.97" y1="50.01" x2="66.32" y2="55.96"/>
+          <line class="tick" x1="73.01" y1="40.27" x2="77.71" y2="46.74"/>
+          <line class="tick major" x1="86.00" y1="31.83" x2="94.00" y2="45.68"/>
+          <line class="tick" x1="99.80" y1="24.80" x2="103.06" y2="32.10"/>
+          <line class="tick" x1="114.27" y1="19.24" x2="116.74" y2="26.85"/>
+          <line class="tick" x1="129.23" y1="15.23" x2="130.89" y2="23.06"/>
+          <line class="tick" x1="144.53" y1="12.81" x2="145.37" y2="20.77"/>
+              <circle class="ring inner" cx="160" cy="160" r="112"/>
+              <circle class="sweep" cx="160" cy="160" r="122" pathLength="100" stroke-dasharray="22 78"/>
+            </svg>
+            <button id="talk" type="button" disabled>Tap to talk</button>
+          </div>
+          <button id="cancel-talk" type="button" class="secondary" hidden>Cancel</button>
+          <span id="vstatus" role="status">Not connected</span>
+          <span id="hint">Tap the button, speak at your own pace, then tap Done. You can also press and hold.</span>
+          <audio id="player" style="display:none"></audio>
+        </div>
+        <div id="vlog" role="log" aria-live="polite" aria-label="Voice conversation"></div>
       </div>
       <div id="chat-view" class="view" role="tabpanel" aria-labelledby="tab-chat" hidden>
         <div id="log" role="log" aria-live="polite" aria-label="Conversation"></div>
@@ -331,16 +437,23 @@
           <button id="send" type="submit" disabled>Send</button>
         </form>
       </div>
-      <div id="voice-view" class="view" role="tabpanel" aria-labelledby="tab-voice">
-        <div id="vlog" role="log" aria-live="polite" aria-label="Voice conversation"></div>
-        <div id="voice-foot">
-          <button id="talk" type="button" disabled>Hold to talk</button>
-          <span id="vstatus" role="status">Not connected</span>
-          <span id="hint">Press and hold, speak, then release.</span>
-          <audio id="player" style="display:none"></audio>
+      <div id="connectors-view" class="view" role="tabpanel" aria-labelledby="tab-connectors" hidden>
+      <aside id="connectors" aria-labelledby="connectors-title">
+        <h2 class="label" id="connectors-title">Connectors</h2>
+        <div id="connector-list"></div>
+        <button id="connector-add" class="secondary" type="button" aria-expanded="false" aria-controls="connector-add-note">Add a connector</button>
+        <div id="connector-add-note" class="connector-add-note" hidden>More connectors can be added here, such as email, fitness, or music. Ask the team to hook one up.</div>
+      </aside>
+      <div id="panels" role="region" aria-label="Opened connectors">
+        <div id="empty" class="empty">
+          Pick a connector in the list, or ask in the chat. Mention <strong>nessie</strong>
+          to pull up the Capital One mock banking data, or <strong>health</strong> to pull
+          up patient records from FinchNode.
         </div>
       </div>
+      </div>
     </section>
+  </main>
   </div>
   <script>
     const log = document.getElementById("log");
@@ -849,33 +962,38 @@
     // ---- tabs: chat / voice share this page and the connector panels ----
     window.clawOnTool = (name) => { if (connectorState.has(name)) openConnector(name); };
     function showTab(which) {
-      const voice = which === "voice";
-      document.getElementById("chat-view").hidden = voice;
-      document.getElementById("voice-view").hidden = !voice;
-      document.getElementById("tab-chat").classList.toggle("active", !voice);
-      document.getElementById("tab-voice").classList.toggle("active", voice);
-      document.getElementById("tab-chat").setAttribute("aria-selected", String(!voice));
-      document.getElementById("tab-voice").setAttribute("aria-selected", String(voice));
-      if (voice && window.clawVoiceStart) window.clawVoiceStart();
-      else input.focus();
+      for (const t of ["voice", "chat", "connectors"]) {
+        const on = t === which;
+        document.getElementById(t + "-view").hidden = !on;
+        document.getElementById("tab-" + t).classList.toggle("active", on);
+        document.getElementById("tab-" + t).setAttribute("aria-selected", String(on));
+      }
+      if (which === "voice" && window.clawVoiceStart) window.clawVoiceStart();
+      else if (which === "chat") input.focus();
     }
+    document.getElementById("tab-connectors").onclick = () => showTab("connectors");
     document.getElementById("tab-chat").onclick = () => showTab("chat");
     document.getElementById("tab-voice").onclick = () => showTab("voice");
     if (location.hash === "#chat") showTab("chat");
+    else if (location.hash === "#connectors") showTab("connectors");
   </script>
   <script>
-    // Voice client (hold-to-talk over /ws/voice); starts when the Voice tab opens.
+    // Voice client (tap-to-talk, or press and hold, over /ws/voice); starts when the Voice tab opens.
     (() => {
     const log = document.getElementById("vlog");
     const statusEl = document.getElementById("vstatus");
     const talkBtn = document.getElementById("talk");
+    const cancelBtn = document.getElementById("cancel-talk");
     const hint = document.getElementById("hint");
     const player = document.getElementById("player");
 
     const TARGET_RATE = 16000;
     const CHUNK_SAMPLES = TARGET_RATE / 10; // ~100 ms per frame
     const TAIL_MS = 200; // keep capturing briefly after release so the last word isn't clipped
-    const IDLE_HINT = "Press and hold, speak, then release.";
+    const HOLD_MS = 400; // a press held this long is push-to-talk; a shorter one is a tap that keeps listening
+    const IDLE_HINT = "Tap the button, speak at your own pace, then tap Done. You can also press and hold.";
+    const LISTEN_HINT = "Listening. Take your time, then tap Done. Cancel throws this away.";
+    const MIC_HINT = "Claw needs your microphone to hear you. Your browser will ask once: choose Allow.";
 
     let ws = null;
     let audioCtx = null;
@@ -999,16 +1117,14 @@
       ws.binaryType = "arraybuffer";
 
       ws.onopen = async () => {
-        setStatus("Requesting microphone…");
-        try {
-          ws.send(JSON.stringify({ type: "prewarm" }));
-          if (!audioCtx) await setupRecorder();
-          setStatus("", "ok");
-          talkBtn.disabled = false;
-        } catch (err) {
-          setStatus("Microphone access denied. Allow it in your browser settings.", "bad");
-          addMsg("meta", String(err));
+        ws.send(JSON.stringify({ type: "prewarm" }));
+        // Never pop the browser's microphone prompt on page load. If it was already
+        // allowed, set up quietly; otherwise ask only after the person presses the button.
+        if (!audioCtx && (await micAlreadyAllowed())) {
+          try { await setupRecorder(); } catch {}
         }
+        if (audioCtx) showReady();
+        else showNeedsMic();
       };
 
       ws.onmessage = (ev) => {
@@ -1056,7 +1172,7 @@
       ws.onclose = () => {
         setStatus("Disconnected. Trying again…", "bad");
         talkBtn.disabled = true;
-        stopTalking();
+        cancelTalking();
         endUtterance();
         incoming = null;
         setTimeout(connect, 1500);
@@ -1305,6 +1421,47 @@
       }
     }
 
+    function showReady() {
+      setStatus("Ready", "ok");
+      talkBtn.disabled = false;
+      talkBtn.textContent = "Tap to talk";
+      cancelBtn.hidden = true;
+      hint.textContent = IDLE_HINT;
+    }
+
+    function showNeedsMic(denied) {
+      talkBtn.disabled = false;
+      talkBtn.textContent = "Turn on voice";
+      cancelBtn.hidden = true;
+      if (denied) {
+        setStatus("The microphone is blocked", "bad");
+        hint.textContent = "Click the lock icon next to the web address, set Microphone to Allow, then press Turn on voice again. You can still type in the Chat tab.";
+      } else {
+        setStatus("Voice is off");
+        hint.textContent = MIC_HINT;
+      }
+    }
+
+    async function micAlreadyAllowed() {
+      try {
+        const p = await navigator.permissions.query({ name: "microphone" });
+        return p.state === "granted";
+      } catch {
+        return false;
+      }
+    }
+
+    async function enableMic() {
+      talkBtn.disabled = true;
+      setStatus("Waiting for you to choose Allow…");
+      try {
+        await setupRecorder();
+        showReady();
+      } catch {
+        showNeedsMic(true);
+      }
+    }
+
     function startTalking() {
       if (!audioCtx || recording || !ws || ws.readyState !== WebSocket.OPEN) return;
       endUtterance(); // a press during the previous release tail closes that utterance first
@@ -1314,8 +1471,10 @@
       stopPlayback();
       if (incoming) incoming.skip = true;
       talkBtn.classList.add("recording");
-      talkBtn.textContent = "Listening…";
-      hint.textContent = "Listening…";
+      talkBtn.textContent = "Done";
+      cancelBtn.hidden = false;
+      setStatus("Listening", "ok");
+      hint.textContent = LISTEN_HINT;
       pcmQueue = [];
       pcmQueued = 0;
       resampleCarry = new Float32Array(0);
@@ -1327,12 +1486,35 @@
       startBrowserRecognition(uttId);
     }
 
+    function resetTalkUi() {
+      talkBtn.classList.remove("recording");
+      cancelBtn.hidden = true;
+      if (audioCtx && ws && ws.readyState === WebSocket.OPEN) {
+        talkBtn.textContent = "Tap to talk";
+        setStatus("Ready", "ok");
+      }
+    }
+
     function stopTalking() {
       if (!recording) return;
       recording = false;
-      talkBtn.classList.remove("recording");
-      talkBtn.textContent = "Hold to talk";
+      resetTalkUi();
       tailTimer = setTimeout(endUtterance, TAIL_MS);
+    }
+
+    // Throw the utterance away: nothing is sent, and the half-made bubble goes.
+    function cancelTalking() {
+      if (!recording) return;
+      recording = false;
+      capturing = false;
+      if (tailTimer) { clearTimeout(tailTimer); tailTimer = null; }
+      stopBrowserRecognition();
+      pcmQueue = [];
+      pcmQueued = 0;
+      const bubble = userBubbles.get(uttId);
+      if (bubble) { bubble.remove(); userBubbles.delete(uttId); }
+      resetTalkUi();
+      hint.textContent = IDLE_HINT;
     }
 
     function prewarm() {
@@ -1343,11 +1525,46 @@
     talkBtn.addEventListener("pointerenter", prewarm);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) prewarm(); });
 
-    talkBtn.addEventListener("mousedown", startTalking);
-    talkBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startTalking(); });
-    talkBtn.addEventListener("mouseup", stopTalking);
-    talkBtn.addEventListener("mouseleave", stopTalking);
-    talkBtn.addEventListener("touchend", (e) => { e.preventDefault(); stopTalking(); });
+    // Pointer: a quick tap starts listening and keeps going until the next tap on Done.
+    // A press held past HOLD_MS is push-to-talk and sends on release. The pointer is
+    // captured, so sliding off the button never ends the utterance.
+    let pressId = null;
+    let pressAt = 0;
+    let pressStarted = false; // this press is the one that started listening
+    let pressStops = false;   // this press began while listening, so its release sends
+    talkBtn.addEventListener("pointerdown", (e) => {
+      if (!audioCtx || pressId !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
+      pressId = e.pointerId;
+      pressAt = performance.now();
+      try { talkBtn.setPointerCapture(e.pointerId); } catch {}
+      if (recording) { pressStops = true; pressStarted = false; }
+      else { pressStops = false; pressStarted = true; startTalking(); }
+    });
+    function endPress(e, cancelled) {
+      if (e.pointerId !== pressId) return;
+      pressId = null;
+      const held = performance.now() - pressAt >= HOLD_MS;
+      if (!cancelled && (pressStops || (pressStarted && held))) stopTalking();
+      // A browser-cancelled or lost gesture leaves listening on; Done and Cancel stay available.
+      pressStarted = pressStops = false;
+    }
+    talkBtn.addEventListener("pointerup", (e) => endPress(e, false));
+    talkBtn.addEventListener("pointercancel", (e) => endPress(e, true));
+    talkBtn.addEventListener("lostpointercapture", (e) => endPress(e, true));
+    talkBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    // Keyboard, switch and screen-reader activation arrive as a click with no pointer (detail 0).
+    // The same click turns voice on when the microphone isn't set up yet.
+    talkBtn.addEventListener("click", (e) => {
+      if (!audioCtx) { enableMic(); return; }
+      if (e.detail !== 0) return; // pointer clicks were handled above
+      if (recording) stopTalking();
+      else startTalking();
+    });
+    cancelBtn.addEventListener("click", () => { cancelTalking(); talkBtn.focus(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && recording) { e.preventDefault(); cancelTalking(); talkBtn.focus(); }
+    });
 
     let started = false;
     window.clawVoiceStart = () => {
@@ -1360,7 +1577,7 @@
   <script>
     // Opens on the Voice tab (use /#chat for chat). Then: theme switch, which starts from the
     // system setting and remembers an explicit choice.
-    if (location.hash !== "#chat" && window.clawVoiceStart) window.clawVoiceStart();
+    if (location.hash !== "#chat" && location.hash !== "#connectors" && window.clawVoiceStart) window.clawVoiceStart();
     (() => {
       const root = document.documentElement;
       const btn = document.getElementById("theme-switch");
