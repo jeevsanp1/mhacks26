@@ -34,6 +34,7 @@ from claw.channels.voice import (
     pcm16_to_wav,
 )
 from claw import connectors
+from claw.computer_use import focus_dashboard
 from claw.config import Settings, get_settings
 from claw.events import AgentEvent
 from claw.gateway import methods, protocol
@@ -504,11 +505,18 @@ def create_app(
         async def run_turn(utt_id: Any, transcript: str) -> None:
             async with turn_lock:
                 audio_started = False
+                used_computer = False
 
                 async def start_audio(fmt: str) -> None:
                     nonlocal audio_started
                     if not audio_started:
                         audio_started = True
+                        if used_computer:
+                            # The agent drove another app or tab; bring the dashboard back
+                            # before it speaks so the user is looking at it.
+                            await asyncio.to_thread(
+                                focus_dashboard, app.state.settings.gateway_port
+                            )
                         await send_json({"type": "audio_start", "id": utt_id, "format": fmt})
 
                 async def on_audio(pcm: bytes) -> None:
@@ -528,7 +536,7 @@ def create_app(
                             await send_json(
                                 {"type": "filler", "id": utt_id, "text": phrase.strip()}
                             )
-                            tts.feed(phrase)
+                            tts.feed(phrase, flush=True)
                         try:
                             await asyncio.wait_for(stop_filler.wait(), timeout=0.25)
                         except asyncio.TimeoutError:
@@ -557,6 +565,9 @@ def create_app(
                             await send_json({"type": "reply_delta", "id": utt_id, "delta": delta})
                             tts.feed(delta)
                         elif event.stream == "tool":
+                            nonlocal used_computer
+                            if data.get("toolName") == "computer":
+                                used_computer = True
                             await send_json(
                                 {
                                     "type": "tool",

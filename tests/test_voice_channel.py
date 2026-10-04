@@ -74,8 +74,17 @@ def test_streaming_synthesizer_sends_whole_words_without_markdown() -> None:
     sent = []
     while not tts._outbox.empty():
         sent.append(tts._outbox.get_nowait())
-    assert sent == ["Hello ", "world, ", "how are "]
+    assert sent == [("Hello ", False), ("world, ", False), ("how are ", False)]
     assert tts._pending == "you"
+
+
+def test_streaming_synthesizer_flags_filler_to_flush() -> None:
+    async def on_audio(_: bytes) -> None:
+        pass
+
+    tts = StreamingSynthesizer("key", "voice", "model", on_audio)
+    tts.feed("One moment. ", flush=True)
+    assert tts._outbox.get_nowait() == ("One moment. ", True)
 
 
 def test_elevenlabs_speech_requires_api_key(settings: Settings) -> None:

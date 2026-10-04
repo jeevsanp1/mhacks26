@@ -132,15 +132,16 @@
     .plate { position: relative; display: grid; gap: var(--ds-space-12) var(--ds-space-12); grid-template-columns: minmax(0, 1fr); padding-top: var(--ds-space-6); }
     .intro { grid-area: intro; min-width: 0; }
     #chat { grid-area: talk; min-width: 0; display: flex; flex-direction: column; }
-    .plate { grid-template-areas: "intro" "talk"; }
+    .plate { grid-template-areas: "intro" "talk" "panels"; }
     @media (min-width: 48rem) {
-      .plate { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "talk"; }
+      .plate { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "talk" "panels"; }
       .intro { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; column-gap: var(--ds-space-8); }
       .intro .rule, .intro h1, .intro .lede { grid-column: 1; }
       .today { grid-column: 2; grid-row: 1 / -1; align-self: end; margin-bottom: var(--ds-space-8); }
     }
     @media (min-width: 80rem) {
-      .plate { grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); grid-template-areas: "intro talk"; }
+      /* The connector dock sits beside the conversation, so the data is visible while it is discussed. */
+      .plate { grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 24rem); grid-template-areas: "intro talk panels"; }
       .intro { display: block; }
     }
 
@@ -263,31 +264,21 @@
     input[type="text"]:hover { border-color: var(--ds-text); }
     #send { min-height: var(--ds-size-l); padding-inline: var(--ds-space-8); }
 
-    /* ---- The list: connectors as ranked rows, opened data below ---- */
-    #connectors h2, #panels h2.empty-title { font-family: var(--ds-font); }
-    #connectors > .label { margin: 0 0 var(--ds-space-3); padding-bottom: var(--ds-space-2); border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); }
-    .connector {
-      display: block; width: 100%; text-align: left; justify-content: flex-start;
-      background: transparent; color: var(--ds-text);
-      border: 0; border-bottom: var(--ds-border-1x) solid var(--ds-border-divider); border-radius: 0;
-      padding: var(--ds-space-3) var(--ds-space-2); font-weight: 400; letter-spacing: inherit;
-    }
-    .connector:hover:not(:disabled) { background: var(--ds-bg-subtle); color: var(--ds-text); border-color: transparent; border-bottom-color: var(--ds-border-divider); }
-    .connector:active:not(:disabled) { background: var(--ds-bg-muted); color: var(--ds-text); border-color: transparent; border-bottom-color: var(--ds-border-divider); }
-    .connector.open { border-bottom: var(--ds-border-2x) solid var(--ds-primary); }
-    .connector.open .cname { color: var(--ds-text-accent); }
-    .connector .cname { font-family: var(--ds-font-serif); font-size: var(--ds-text-xl); display: flex; align-items: center; gap: var(--ds-space-3); }
-    .connector .cdesc { font-size: var(--ds-text-m); color: var(--ds-text-secondary); margin-top: var(--ds-space-1); padding-left: 1.5rem; }
-    .connector .cstate { font-size: var(--ds-text-m); font-weight: 600; margin-top: var(--ds-space-1); padding-left: 1.5rem; }
-    #connector-add { margin-top: var(--ds-space-4); }
-    .connector-add-note { font-family: var(--ds-font-serif); font-style: italic; font-size: 1.0625rem; color: var(--ds-text-secondary); margin-top: var(--ds-space-3); }
+    /* ---- The dock: always-visible connector tabs, the chosen one's data below ---- */
+    #panels > .label { margin: 0 0 var(--ds-space-3); font-family: var(--ds-font); }
+    #connector-tabs { flex-wrap: nowrap; gap: var(--ds-space-4); margin-bottom: var(--ds-space-4); }
+    #connector-tabs button { display: inline-flex; align-items: center; gap: var(--ds-space-2); flex: none; white-space: nowrap; }
+    #connector-tabs { overflow-x: auto; }
+    #connector-tabs button.active .cname { color: var(--ds-text-accent); }
+    #connector-add { min-width: var(--ds-size-l); justify-content: center; font-size: var(--ds-text-2x); line-height: 1; padding-inline: var(--ds-space-3); }
+    .connector-add-note { font-family: var(--ds-font-serif); font-style: italic; font-size: 1.0625rem; color: var(--ds-text-secondary); margin: 0 0 var(--ds-space-4); }
     .dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--ds-border-control); display: inline-block; flex: none; }
     .dot.live { background: var(--ds-status-success); }
     .dot.mock { background: var(--ds-status-warn); }
     .dot.error { background: var(--ds-status-error); }
 
-    #panels { margin-top: var(--ds-space-8); display: flex; flex-direction: column; gap: var(--ds-space-8); min-width: 0; }
-    .empty { font-family: var(--ds-font-serif); font-size: 1.125rem; color: var(--ds-text-secondary); max-width: var(--ds-measure); }
+    #panels { grid-area: panels; min-width: 0; }
+    .empty { margin-top: var(--ds-space-2); font-family: var(--ds-font-serif); font-size: 1.125rem; color: var(--ds-text-secondary); max-width: var(--ds-measure); }
     .empty strong { color: var(--ds-text); font-weight: 600; }
     .panel { border-top: var(--ds-border-1x) solid var(--ds-text); padding-top: var(--ds-space-3); }
     .panel-head { display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; margin-bottom: var(--ds-space-2); }
@@ -327,7 +318,7 @@
     }
     @media (forced-colors: active) {
       button { border: var(--ds-border-2x) solid ButtonText; }
-      .connector.open { outline: var(--ds-border-3x) solid Highlight; }
+      #connector-tabs button.active { outline: var(--ds-border-3x) solid Highlight; }
       .dial-art .tick, .dial-art .ring { stroke: CanvasText; }
     }
   </style>
@@ -357,7 +348,6 @@
       <div class="tabs" role="tablist" aria-label="How to talk to EWOK">
         <button type="button" id="tab-voice" class="active" role="tab" aria-selected="true" aria-controls="voice-view">Voice</button>
         <button type="button" id="tab-chat" role="tab" aria-selected="false" aria-controls="chat-view">Chat</button>
-        <button type="button" id="tab-connectors" role="tab" aria-selected="false" aria-controls="connectors-view">Connectors</button>
       </div>
       <div id="voice-view" class="view" role="tabpanel" aria-labelledby="tab-voice">
         <div id="voice-foot">
@@ -447,22 +437,17 @@
           <button id="send" type="submit" disabled>Send</button>
         </form>
       </div>
-      <div id="connectors-view" class="view" role="tabpanel" aria-labelledby="tab-connectors" hidden>
-      <aside id="connectors" aria-labelledby="connectors-title">
-        <h2 class="label" id="connectors-title">Connectors</h2>
-        <div id="connector-list"></div>
-        <button id="connector-add" class="secondary" type="button" aria-expanded="false" aria-controls="connector-add-note">Add a connector</button>
-        <div id="connector-add-note" class="connector-add-note" hidden>More connectors can be added here, such as email, fitness, or music. Ask the team to hook one up.</div>
-      </aside>
-      <div id="panels" role="region" aria-label="Opened connectors">
-        <div id="empty" class="empty">
-          Pick a connector in the list, or ask in the chat. Mention <strong>nessie</strong>
-          to pull up the Capital One mock banking data, or <strong>health</strong> to pull
-          up patient records from FinchNode.
-        </div>
-      </div>
-      </div>
     </section>
+    <aside id="panels" aria-labelledby="connectors-title">
+      <h2 class="label" id="connectors-title">Connectors</h2>
+      <div class="tabs" id="connector-tabs" role="tablist" aria-labelledby="connectors-title">
+        <button id="connector-add" type="button" aria-label="Add a connector" aria-expanded="false" aria-controls="connector-add-note">+</button>
+      </div>
+      <div id="connector-add-note" class="connector-add-note" hidden>More connectors can be added here, such as email, fitness, or music. Ask the team to hook one up.</div>
+      <div id="panel-host" role="tabpanel" aria-live="polite">
+        <div id="empty" class="empty"></div>
+      </div>
+    </aside>
   </main>
   <footer class="colophon">
     <p>Built to WCAG 2.2 AAA: 7:1 contrast, large targets, visible focus, never colour alone.</p>
@@ -648,7 +633,10 @@
           addTool(turn, info);
           revealConnector(data.toolName);
         }
-        else if (data.phase === "result") finishTool(turn, info);
+        else if (data.phase === "result") {
+          finishTool(turn, info);
+          if (window.clawOnToolDone) window.clawOnToolDone(data.toolName);
+        }
       }
     }
 
@@ -690,7 +678,10 @@
     }
 
     // ---- connectors dashboard ----
-    const connectorList = document.getElementById("connector-list");
+    const tabsEl = document.getElementById("connector-tabs");
+    const addBtn = document.getElementById("connector-add");
+    const hostEl = document.getElementById("panel-host");
+    let selectedId = null;
     const panelsEl = document.getElementById("panels");
     const emptyEl = document.getElementById("empty");
     const connectorState = new Map(); // id -> { meta, btn, dot, panel, loadedAt, loading }
@@ -719,11 +710,7 @@
       refresh.type = "button";
       refresh.setAttribute("aria-label", `Refresh ${data.name || state.meta.name}`);
       refresh.onclick = () => openConnector(state.meta.id, { refresh: true });
-      const close = el("button", "", "Close");
-      close.type = "button";
-      close.setAttribute("aria-label", `Close ${data.name || state.meta.name}`);
-      close.onclick = () => closeConnector(state.meta.id);
-      head.append(refresh, close);
+      head.append(refresh);
       panel.append(head);
       if (data.summary) panel.append(el("div", "panel-summary", data.summary));
       const src = [data.source, data.fetchedAt && `Updated ${formatWhen(data.fetchedAt)}`].filter(Boolean);
@@ -758,51 +745,45 @@
       panel.append(body);
     }
 
-    function syncEmpty() {
-      const anyOpen = [...connectorState.values()].some((s) => s.panel.isConnected);
-      emptyEl.style.display = anyOpen ? "none" : "";
-    }
-
-    function closeConnector(id) {
+    function selectConnector(id) {
+      selectedId = id;
+      for (const [cid, st] of connectorState) {
+        const on = cid === id;
+        st.btn.classList.toggle("active", on);
+        st.btn.setAttribute("aria-selected", String(on));
+        st.btn.tabIndex = on ? 0 : -1;
+      }
       const state = connectorState.get(id);
-      if (!state) return;
-      state.panel.remove();
-      state.btn.classList.remove("open");
-      state.btn.setAttribute("aria-pressed", "false");
-      syncEmpty();
+      if (state) hostEl.replaceChildren(state.panel);
     }
 
     async function openConnector(id, { refresh = false } = {}) {
       const state = connectorState.get(id);
-      if (!state || state.loading) return;
+      if (!state) return;
+      selectConnector(id);
+      if (state.loading) return;
       const fresh = state.loadedAt && Date.now() - state.loadedAt < 5000;
-      if (!state.panel.isConnected) panelsEl.append(state.panel);
-      state.btn.classList.add("open");
-      state.btn.setAttribute("aria-pressed", "true");
-      syncEmpty();
       if (fresh && !refresh) return;
       state.loading = true;
-      state.stateEl.textContent = "Loading…";
+      state.dot.className = "dot";
       state.panel.replaceChildren(el("div", "loading", `Loading ${state.meta.name}…`));
       try {
         const data = await call("connectors.fetch", { id });
         state.dot.className = `dot ${data.status === "error" ? "error" : "live"}`;
-        state.stateEl.textContent = data.status === "error" ? "Error" : "";
         state.loadedAt = Date.now();
         renderPanel(state, data);
       } catch (err) {
         state.dot.className = "dot error";
-        state.stateEl.textContent = "Error";
-        state.panel.replaceChildren(el("div", "loading", `Could not load ${state.meta.name}. Close it and open it again to retry. (${err.message || err})`));
+        state.panel.replaceChildren(el("div", "loading", `Could not load ${state.meta.name}. Tap its tab again to retry. (${err.message || err})`));
       } finally {
         state.loading = false;
       }
     }
 
-    document.getElementById("connector-add").onclick = () => {
+    addBtn.onclick = () => {
       const note = document.getElementById("connector-add-note");
       note.hidden = !note.hidden;
-      document.getElementById("connector-add").setAttribute("aria-expanded", String(!note.hidden));
+      addBtn.setAttribute("aria-expanded", String(!note.hidden));
     };
 
     const clockTime = document.getElementById("clock-time");
@@ -818,29 +799,23 @@
     async function loadConnectors() {
       try {
         const { connectors } = await call("connectors.list", {});
-        connectorList.replaceChildren();
         for (const meta of connectors) {
-          if (connectorState.has(meta.id)) {
-            connectorList.append(connectorState.get(meta.id).btn);
-            continue;
-          }
-          const btn = el("button", "connector");
+          if (connectorState.has(meta.id)) continue;
+          const btn = el("button");
           btn.type = "button";
+          btn.setAttribute("role", "tab");
+          btn.setAttribute("aria-selected", "false");
+          btn.title = meta.description || "";
           const dot = el("span", "dot");
-          const name = el("div", "cname");
-          name.append(dot, document.createTextNode(meta.name));
-          const stateEl = el("div", "cstate", "Not loaded yet");
-          btn.append(name, el("div", "cdesc", meta.description), stateEl);
-          btn.setAttribute("aria-pressed", "false");
-          btn.onclick = () =>
-            connectorState.get(meta.id).panel.isConnected
-              ? closeConnector(meta.id)
-              : openConnector(meta.id);
-          connectorList.append(btn);
-          connectorState.set(meta.id, { meta, btn, dot, stateEl, panel: el("div", "panel"), loadedAt: 0, loading: false });
+          const name = el("span", "cname", meta.name);
+          btn.append(dot, name);
+          btn.onclick = () => openConnector(meta.id);
+          tabsEl.insertBefore(btn, addBtn);
+          connectorState.set(meta.id, { meta, btn, dot, panel: el("div", "panel"), loadedAt: 0, loading: false });
         }
+        emptyEl.remove();
       } catch (err) {
-        connectorList.textContent = `Connectors are unavailable. Reload the page to try again. (${err.message || err})`;
+        emptyEl.textContent = `Connectors are unavailable. Reload the page to try again. (${err.message || err})`;
       }
     }
 
@@ -972,16 +947,27 @@
 
     connect();
 
-    // ---- tabs: chat / voice share this page and the connector panels ----
-    // When the assistant uses a connector's tool, jump to the Connectors tab with its data open.
+    // ---- tabs: chat / voice share this page and the connector dock ----
+    // When the assistant uses a connector's tool, open its data beside the conversation (no tab switch).
+    // Tools that act on a connector (rather than read it): select its tab now, refresh it when they finish.
+    const ACTION_TOOLS = { nessie_transaction: "nessie" };
     function revealConnector(name) {
-      if (!connectorState.has(name)) return;
-      openConnector(name);
-      showTab("connectors");
+      const action = ACTION_TOOLS[name];
+      if (action && connectorState.has(action)) selectConnector(action);
+      else if (connectorState.has(name)) openConnector(name);
+      else return;
+      // Stacked (narrow) layouts put the data below the conversation; bring it into view.
+      if (!window.matchMedia("(min-width: 80rem)").matches) {
+        panelsEl.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      }
     }
     window.clawOnTool = revealConnector;
+    window.clawOnToolDone = (name) => {
+      const id = ACTION_TOOLS[name];
+      if (id && connectorState.has(id)) openConnector(id, { refresh: true });
+    };
     function showTab(which) {
-      for (const t of ["voice", "chat", "connectors"]) {
+      for (const t of ["voice", "chat"]) {
         const on = t === which;
         document.getElementById(t + "-view").hidden = !on;
         document.getElementById("tab-" + t).classList.toggle("active", on);
@@ -990,11 +976,9 @@
       if (which === "voice" && window.clawVoiceStart) window.clawVoiceStart();
       else if (which === "chat") input.focus();
     }
-    document.getElementById("tab-connectors").onclick = () => showTab("connectors");
     document.getElementById("tab-chat").onclick = () => showTab("chat");
     document.getElementById("tab-voice").onclick = () => showTab("voice");
     if (location.hash === "#chat") showTab("chat");
-    else if (location.hash === "#connectors") showTab("connectors");
   </script>
   <script>
     // Voice client (tap-to-talk, or press and hold, over /ws/voice); starts when the Voice tab opens.
@@ -1082,8 +1066,6 @@
 
     function onAudioStart(frame) {
       const muted = frame.id != null && frame.id < mutedBelow;
-      // About to speak: return to the home (Voice) screen unprompted, so the user isn't left on a connector.
-      if (!muted && !recording && window.showTab) showTab("voice");
       if (!muted) stopPlayback();
       incoming = { id: frame.id, format: frame.format, skip: muted || recording, mp3Parts: [] };
     }
@@ -1175,7 +1157,10 @@
           const turn = getTurn(id);
           const info = { id: frame.toolCallId, name: frame.name, args: frame.args, result: frame.result };
           if (frame.phase === "call") addTool(turn, info);
-          else if (frame.phase === "result") finishTool(turn, info);
+          else if (frame.phase === "result") {
+            finishTool(turn, info);
+            if (window.clawOnToolDone) window.clawOnToolDone(frame.name);
+          }
         } else if (frame.type === "turn") {
           setUserText(id, frame.transcript, false);
           const turn = getTurn(id);
@@ -1598,7 +1583,7 @@
   <script>
     // Opens on the Voice tab (use /#chat for chat). Then: theme switch, which starts from the
     // system setting and remembers an explicit choice.
-    if (location.hash !== "#chat" && location.hash !== "#connectors" && window.clawVoiceStart) window.clawVoiceStart();
+    if (location.hash !== "#chat" && window.clawVoiceStart) window.clawVoiceStart();
     (() => {
       const root = document.documentElement;
       const btn = document.getElementById("theme-switch");

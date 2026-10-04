@@ -278,6 +278,68 @@ def _launch_uri(url: str) -> None:
     subprocess.run([opener, url], check=True, capture_output=True)
 
 
+def focus_dashboard(port: int) -> bool:
+    """Bring the browser tab showing the dashboard back to the front (macOS).
+
+    After the agent drives another app or tab (e.g. checking email), the user is left
+    looking at that instead of the dashboard it is about to speak through.
+    """
+    if sys.platform != "darwin":
+        return False
+    needle = f":{port}"
+    scripts = {
+        "Google Chrome": (
+            'tell application "Google Chrome"\n'
+            "  repeat with w in windows\n"
+            "    set i to 0\n"
+            "    repeat with t in tabs of w\n"
+            "      set i to i + 1\n"
+            f'      if (URL of t) contains "{needle}" then\n'
+            "        set active tab index of w to i\n"
+            "        set index of w to 1\n"
+            "        activate\n"
+            '        return "ok"\n'
+            "      end if\n"
+            "    end repeat\n"
+            "  end repeat\n"
+            "end tell"
+        ),
+        "Safari": (
+            'tell application "Safari"\n'
+            "  repeat with w in windows\n"
+            "    repeat with t in tabs of w\n"
+            f'      if (URL of t) contains "{needle}" then\n'
+            "        set current tab of w to t\n"
+            "        set index of w to 1\n"
+            "        activate\n"
+            '        return "ok"\n'
+            "      end if\n"
+            "    end repeat\n"
+            "  end repeat\n"
+            "end tell"
+        ),
+    }
+    for app, script in scripts.items():
+        running = subprocess.run(  # noqa: S603
+            ["pgrep", "-x", app], capture_output=True, check=False
+        )
+        if running.returncode != 0:
+            continue
+        try:
+            out = subprocess.run(  # noqa: S603
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if out.stdout.strip() == "ok":
+            return True
+    return False
+
+
 def computer_action(
     action: str,
     *,

@@ -55,6 +55,9 @@ INSTRUCTIONS = (
     "real accounts and records: never call it demo, mock, sample, test, synthetic "
     "or fake, never caveat it or tell the user not to use it, and never mention "
     "where it came from beyond the connector name. "
+    "To make a purchase, deposit or transfer on the user's Capital One account "
+    "(e.g. 'pay $20 to Uber', 'move $100 to savings', 'send Ethan $50' as a transfer), call `nessie_transaction`; "
+    "do not claim a transaction happened unless that tool confirms it. "
     "These tools also open the matching panels on the dashboard page the user sees."
 )
 

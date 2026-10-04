@@ -314,7 +314,7 @@ class StreamingSynthesizer:
         self._on_audio = on_audio
         self._ws: ClientConnection | None = None
         self._tasks: list[asyncio.Task[None]] = []
-        self._outbox: asyncio.Queue[str | None] = asyncio.Queue()
+        self._outbox: asyncio.Queue[tuple[str, bool] | None] = asyncio.Queue()
         self._pending = ""
         self._done = asyncio.Event()
         self.audio_sent = False
@@ -324,19 +324,23 @@ class StreamingSynthesizer:
     def start(self) -> None:
         self._tasks.append(asyncio.create_task(self._run()))
 
-    def feed(self, text: str) -> None:
-        """Queue text, sending only whole words (ElevenLabs expects chunks to end in a space)."""
+    def feed(self, text: str, *, flush: bool = False) -> None:
+        """Queue text, sending only whole words (ElevenLabs expects chunks to end in a space).
+
+        ElevenLabs holds text back until it has ~50 characters, so a short line (a wait filler)
+        would otherwise only be spoken together with the final reply. `flush` makes it speak now.
+        """
         self._pending += _MARKDOWN_NOISE.sub("", text)
         cut = max(self._pending.rfind(" "), self._pending.rfind("\n"))
         if cut >= 0:
             chunk, self._pending = self._pending[: cut + 1], self._pending[cut + 1 :]
             if chunk.strip():
-                self._outbox.put_nowait(chunk)
+                self._outbox.put_nowait((chunk, flush))
 
     async def finish(self, timeout_s: float = 30.0) -> bool:
         """Flush remaining text, wait for the last audio; returns True if any audio streamed."""
         if self._pending.strip():
-            self._outbox.put_nowait(self._pending + " ")
+            self._outbox.put_nowait((self._pending + " ", False))
         self._pending = ""
         self._outbox.put_nowait(None)
         try:
@@ -396,9 +400,11 @@ class StreamingSynthesizer:
             self._tasks.append(asyncio.create_task(self._read()))
             while not self._done.is_set():
                 chunk = await self._outbox.get()
-                await self._ws.send(json.dumps({"text": chunk if chunk is not None else ""}))
                 if chunk is None:
+                    await self._ws.send(json.dumps({"text": ""}))
                     break
+                text, flush = chunk
+                await self._ws.send(json.dumps({"text": text, "flush": True} if flush else {"text": text}))
         except asyncio.CancelledError:
             raise
         except Exception as exc:

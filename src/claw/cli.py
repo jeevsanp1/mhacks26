@@ -8,6 +8,7 @@ import sys
 import uuid
 from typing import Any, Optional
 
+import httpx
 import typer
 import websockets
 
@@ -204,6 +205,21 @@ def gateway_cmd(
         "Gateway binds localhost by default."
     )
     run_gateway(settings, host=h, port=p)
+
+
+@app.command("nessie-seed")
+def nessie_seed_cmd(
+    days: int = typer.Option(45, "--days", help="How far back to spread the transactions"),
+    seed: Optional[int] = typer.Option(None, "--seed", help="Random seed, for repeatable amounts"),
+) -> None:
+    """Post a month of mock purchases, paychecks and a transfer to the Nessie account (writes to the Nessie API)."""
+    from claw.nessie_seed import seed_nessie
+
+    try:
+        _err(seed_nessie(get_settings(), days=days, seed=seed))
+    except (RuntimeError, httpx.HTTPError) as exc:
+        _err(f"error: {exc}")
+        raise typer.Exit(1)
 
 
 @app.command("reset")

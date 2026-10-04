@@ -22,7 +22,7 @@ def test_single_page_has_chat_voice_and_connectors(settings: Settings) -> None:
     with TestClient(app) as client:
         html = client.get("/").text
         assert 'id="tab-voice"' in html and "/ws/voice" in html
-        assert 'id="connector-list"' in html
+        assert 'id="connector-tabs"' in html
         redirect = client.get("/voice", follow_redirects=False)
         assert redirect.status_code in (302, 307) and redirect.headers["location"] == "/#voice"
 
