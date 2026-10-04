@@ -246,6 +246,26 @@ npm run create-agent  # registers tools + creates/updates the agent
 Re-running `create-agent` is safe — state is cached in `data/agent-state.json`
 (gitignored) so it updates in place.
 
+## Running both servers with public URLs
+
+Local dev uses two servers, each exposed through its own Cloudflare quick tunnel
+(`brew install cloudflared`, no account needed). See `CLOUDFLARE_URLS.md` for the
+full walkthrough.
+
+| Server | Local | Start | Env var for its tunnel URL |
+|--------|-------|-------|----------------------------|
+| Node/Express (tool + post-call webhooks) | `http://localhost:3000` | `npm run dev` | `WEBHOOK_BASE_URL` |
+| claw gateway (dashboard, Vapi LLM endpoint) | `http://localhost:18789` | `uv run claw gateway` (or `.venv/bin/python -m claw gateway`) | `CLAW_PUBLIC_URL` |
+
+```bash
+cloudflared tunnel --url http://localhost:3000    # -> WEBHOOK_BASE_URL
+cloudflared tunnel --url http://localhost:18789   # -> CLAW_PUBLIC_URL
+```
+
+Each command prints a random `https://<words>.trycloudflare.com` URL. These change
+every time `cloudflared` restarts, so after a restart update `.env`, restart the
+Node server, and re-run `npm run create-agent` / `npm run create-vapi-assistant`.
+
 ## Layout
 
 - `src/agent/` — system prompt, tool definitions, the script that registers them with ElevenLabs.

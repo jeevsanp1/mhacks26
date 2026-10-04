@@ -646,7 +646,7 @@
         const info = { id: data.toolCallId, name: data.toolName, args: data.args, result: data.result };
         if (data.phase === "call") {
           addTool(turn, info);
-          if (connectorState.has(data.toolName)) openConnector(data.toolName);
+          revealConnector(data.toolName);
         }
         else if (data.phase === "result") finishTool(turn, info);
       }
@@ -973,7 +973,13 @@
     connect();
 
     // ---- tabs: chat / voice share this page and the connector panels ----
-    window.clawOnTool = (name) => { if (connectorState.has(name)) openConnector(name); };
+    // When the assistant uses a connector's tool, jump to the Connectors tab with its data open.
+    function revealConnector(name) {
+      if (!connectorState.has(name)) return;
+      openConnector(name);
+      showTab("connectors");
+    }
+    window.clawOnTool = revealConnector;
     function showTab(which) {
       for (const t of ["voice", "chat", "connectors"]) {
         const on = t === which;
@@ -1076,6 +1082,8 @@
 
     function onAudioStart(frame) {
       const muted = frame.id != null && frame.id < mutedBelow;
+      // About to speak: return to the home (Voice) screen unprompted, so the user isn't left on a connector.
+      if (!muted && !recording && window.showTab) showTab("voice");
       if (!muted) stopPlayback();
       incoming = { id: frame.id, format: frame.format, skip: muted || recording, mp3Parts: [] };
     }
