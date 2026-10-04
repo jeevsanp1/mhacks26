@@ -32,7 +32,7 @@ def test_health_connector_normalizes_finchnode_record(settings: Settings) -> Non
     respx.get(f"{FINCH}/users/patient-demo-001/records").respond(json=FINCH_RECORD)
     panel = connectors.fetch_connector("health", settings)
     assert panel["status"] == "live"
-    assert "Morgan Rivera" in panel["summary"] and "1 flagged" in panel["summary"]
+    assert "Patient" in panel["summary"] and "1 flagged" in panel["summary"]
     titles = {s["title"]: s for s in panel["sections"]}
     assert titles["Labs"]["rows"][0][:3] == ["Hemoglobin A1c", "6.4 %", "H"]
     assert "Type 2 diabetes" in connectors.panel_to_text(panel)
@@ -89,7 +89,7 @@ def test_gateway_ws_lists_and_fetches_connectors(settings: Settings) -> None:
 
         ws.send_text(dumps(req("2", "connectors.list", {})))
         ids = [c["id"] for c in ws.receive_json()["payload"]["connectors"]]
-        assert ids == ["nessie", "health"]
+        assert ids == ["nessie", "health", "calendar"]
 
         ws.send_text(dumps(req("3", "connectors.fetch", {"id": "health"})))
         assert ws.receive_json()["payload"]["status"] == "live"

@@ -40,6 +40,13 @@ CONNECTORS: dict[str, dict[str, str]] = {
         "url": "https://finchnode.com/",
         "trigger": "health",
     },
+    "calendar": {
+        "id": "calendar",
+        "name": "Calendar",
+        "description": "Upcoming events and meetings.",
+        "url": "",
+        "trigger": "calendar",
+    },
 }
 
 
@@ -48,14 +55,13 @@ def _now() -> str:
 
 
 _SYNTH = re.compile(r"\s*\(synthetic\)|synthetic example[:.]?\s*|\bsynthetic\s+", re.I)
-_DEMO_NAME = re.compile(r"\bAvery Demo\b")
 _DEMO_WORD = re.compile(r"\bDemo\s+(?=[A-Z])|\bsample\s+", re.I)
 
 
 def _scrub(value: Any) -> Any:
     """Drop 'synthetic'/'demo' labelling from displayed values; the data reads as the user's own."""
     if isinstance(value, str):
-        value = _DEMO_NAME.sub("Avery Park", value)
+        value = value
         return _DEMO_WORD.sub("", _SYNTH.sub("", value)).strip()
     if isinstance(value, list):
         return [_scrub(v) for v in value]
@@ -78,7 +84,7 @@ def _day(v: Any) -> str:
 # ---------------------------------------------------------------- Nessie
 
 _NESSIE_MOCK: dict[str, Any] = {
-    "customers": [{"_id": "mock-cust-1", "first_name": "Alex", "last_name": "Morgan"}],
+    "customers": [{"_id": "mock-cust-1", "first_name": "Rishi", "last_name": "Lokesh"}],
     "accounts": [
         {"_id": "mock-acct-1", "type": "Checking", "nickname": "Everyday Checking", "balance": 4821.37, "rewards": 0},
         {"_id": "mock-acct-2", "type": "Savings", "nickname": "Rainy Day", "balance": 12650.0, "rewards": 0},
@@ -124,15 +130,13 @@ def _nessie_live(settings: Settings) -> dict[str, Any] | None:
 
 
 def _nessie_panel(data: dict[str, Any], *, status: str, note: str) -> dict[str, Any]:
-    customer = data["customers"][0]
     accounts = data["accounts"]
     purchases = data["purchases"]
-    name = f"{customer.get('first_name', '')} {customer.get('last_name', '')}".strip() or "customer"
     net = sum(float(a.get("balance") or 0) for a in accounts)
     return {
         "status": status,
         "source": note,
-        "summary": f"{name}: {len(accounts)} accounts, net balance {_money(net)}, "
+        "summary": f"{len(accounts)} accounts, net balance {_money(net)}, "
         f"{len(purchases)} recent purchases.",
         "sections": [
             {
@@ -202,7 +206,7 @@ def fetch_health(settings: Settings) -> dict[str, Any]:
     labs = data.get("labs") or []
     flagged = [x for x in labs if str(x.get("interpretation") or "N") not in ("N", "")]
     summary = (
-        f"{demo.get('name', subject)} ({demo.get('gender', '?')}, born {demo.get('birthDate', '?')}): "
+        f"Patient ({demo.get('gender', '?')}, born {demo.get('birthDate', '?')}): "
         f"{len(conditions)} conditions, {len(meds)} medications, {len(labs)} lab results"
         + (f", {len(flagged)} flagged" if flagged else "")
         + "."
@@ -252,11 +256,39 @@ def fetch_health(settings: Settings) -> dict[str, Any]:
     }
 
 
+# -------------------------------------------------------------- Calendar
+
+_CALENDAR_MOCK: list[list[str]] = [
+    ["2026-10-03", "10:00 AM", "Team standup", "Zoom"],
+    ["2026-10-03", "1:30 PM", "Lunch with Priya", "Café Verde"],
+    ["2026-10-04", "9:00 AM", "Dentist appointment", "Main St Dental"],
+    ["2026-10-05", "3:00 PM", "Project review", "Conference Room B"],
+    ["2026-10-07", "11:00 AM", "Hackathon demo prep", "Online"],
+    ["2026-10-09", "6:30 PM", "Dinner reservation", "Osteria"],
+]
+
+
+def fetch_calendar(settings: Settings) -> dict[str, Any]:
+    return {
+        "status": "mock",
+        "source": "Mock calendar",
+        "summary": f"{len(_CALENDAR_MOCK)} upcoming events.",
+        "sections": [
+            {
+                "title": "Upcoming events",
+                "columns": ["Date", "Time", "Event", "Where"],
+                "rows": [list(r) for r in _CALENDAR_MOCK],
+            }
+        ],
+    }
+
+
 # --------------------------------------------------------------- registry
 
 _FETCHERS: dict[str, Callable[[Settings], dict[str, Any]]] = {
     "nessie": fetch_nessie,
     "health": fetch_health,
+    "calendar": fetch_calendar,
 }
 
 
@@ -307,3 +339,11 @@ def register_connector_tools(agent: Any) -> None:
         Call when the user refers to health. The dashboard shows the same data.
         """
         return panel_to_text(fetch_connector("health", ctx.deps.settings))
+
+    @agent.tool
+    def calendar(ctx: RunContext[ClawDeps]) -> str:
+        """Pull up the user's upcoming calendar events.
+
+        Call when the user refers to their calendar, schedule or meetings. The dashboard shows the same data.
+        """
+        return panel_to_text(fetch_connector("calendar", ctx.deps.settings))
